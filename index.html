@@ -250,6 +250,39 @@ tr.gsep td{height:6px;padding:0;background:var(--pear) !important;border:0}
 .gc.lock{color:var(--muted);font-size:12px}
 .gempty{color:#CBD3BF}
 @media (max-width:520px){ .gtable th.gname,.gtable thead th.gname{width:128px;min-width:128px;max-width:128px} .gn{gap:6px;padding:8px} .gnm{font-size:13px} .gc,.grace{min-width:54px} }
+
+/* ---------- Day picker: all days visible, no sliding ---------- */
+.days{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+@media (min-width:700px){.days{grid-template-columns:repeat(6,1fr)}}
+.dayb{border:2px solid transparent;background:var(--card);border-radius:16px;padding:9px 8px 8px;font:inherit;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;color:var(--ink);box-shadow:0 2px 0 var(--line);transition:transform .1s}
+.dayb:active{transform:scale(.97)}
+.dayb .dn{font-weight:800;font-size:13px;line-height:1.15;min-height:30px;display:flex;align-items:center}
+.dayb .dd{font-size:11px;font-weight:700;color:var(--muted)}
+.dayb .ds{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.4px;padding:2px 7px;border-radius:999px;margin-top:3px}
+.ds.done{background:#EEF2E4;color:var(--muted)}
+.ds.live{background:var(--pink);color:#fff}
+.ds.soon{background:var(--pear);color:var(--ink)}
+.ds.up{background:var(--sky-soft);color:#1D6E96}
+.dayb.on{background:var(--ink);border-color:var(--ink);box-shadow:0 8px 18px -8px rgba(21,54,31,.7)}
+.dayb.on .dn{color:#fff}.dayb.on .dd{color:#CFE0C0}
+.chips.wrap{flex-wrap:wrap;overflow:visible}
+
+/* tabs: always all visible, no sliding */
+nav{overflow:visible;flex-wrap:wrap;justify-content:center;border-radius:26px}
+nav button{flex:1 1 auto;padding:10px 8px}
+@media (max-width:420px){ nav button{font-size:13px;padding:9px 6px} }
+
+/* ---------- Tip lock banner ---------- */
+.lockban{display:flex;gap:12px;align-items:flex-start;border-radius:18px;padding:12px 14px;margin-bottom:12px;font-size:13px;line-height:1.4}
+.lockban b{font-size:14px;display:block;margin-bottom:2px}
+.lockban .lbi{font-size:20px;line-height:1}
+.lockban.open{background:var(--pear);color:var(--ink)}
+.lockban.shut{background:var(--ink);color:#E5EFD2}
+.lockban.shut b{color:var(--pear)}
+.lockban.shut .lnk{color:var(--pear)}
+.ds.locked{background:var(--ink);color:var(--pear)}
+.dayb.on .ds.locked{background:var(--pear);color:var(--ink)}
 </style>
 </head>
 <body>
@@ -336,7 +369,18 @@ function until(iso){
   if(h>0) return 'jumps in '+h+'h '+(m%60)+'m';
   return 'jumps in '+m+'m';
 }
-function isLocked(r){ return Date.parse(r.start) <= Date.now(); }
+function isLocked(r){ return Date.parse(r.lock||r.start) <= Date.now(); }
+function started(r){ return Date.parse(r.start) <= Date.now(); }
+function fmtLeft(ms){
+  var m=Math.max(0,Math.floor(ms/60000)), hh=Math.floor(m/60), d=Math.floor(hh/24);
+  if(d>0) return d+'d '+(hh%24)+'h'; if(hh>0) return hh+'h '+(m%60)+'m'; return m+'m';
+}
+function fmtWhen(iso){ var x=new Date(iso); return x.toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'})+' '+x.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'}); }
+/* The day's lock time = earliest race lock that day (normally the admin-set lock time) */
+function dayLock(dayId){
+  var rs=D.byDay[dayId]||[]; if(!rs.length) return null;
+  return new Date(Math.min.apply(null,rs.map(function(r){return Date.parse(r.lock||r.start);}))).toISOString();
+}
 
 /* ============ Derived data & scoring ============ */
 function derive(){
@@ -382,8 +426,11 @@ function rno(r){ return '<span class="rno c'+((r.raceNo-1)%5)+'">R'+r.raceNo+'</
 function ordinal(n){ return ['','1st','2nd','3rd'][n] || (n+'th'); }
 function defaultDay(){
   if(!S.days.length) return null;
-  var up=S.races.filter(function(r){return !isLocked(r);}).sort(function(a,b){return Date.parse(a.start)-Date.parse(b.start);})[0];
-  if(up) return up.dayId;
+  // 1) a day being raced now, 2) the next day still open for tips, 3) the most recent day with results
+  var live=S.days.filter(function(d){ var rs=D.byDay[d.id]||[]; return rs.some(started) && !rs.every(function(r){return hasResult(r.id);}); })[0];
+  if(live) return live.id;
+  var open=S.days.filter(function(d){ var rs=D.byDay[d.id]||[]; return rs.length && !rs.some(isLocked); })[0];
+  if(open) return open.id;
   var withRes=S.days.filter(function(d){ return (D.byDay[d.id]||[]).some(function(r){return hasResult(r.id);}); });
   return (withRes.length ? withRes[withRes.length-1] : S.days[0]).id;
 }
@@ -408,10 +455,21 @@ function render(){
   var bar=document.getElementById('savebar'); if(bar) bar.remove();
   if(UI.tab==='tips' && S.me) renderSaveBar();
 }
+function dayStatus(d){
+  var rs=D.byDay[d.id]||[];
+  if(!rs.length) return {k:'up',t:'Upcoming'};
+  if(rs.every(function(r){return hasResult(r.id);})) return {k:'done',t:'Done ✓'};
+  if(rs.some(started)) return {k:'live',t:'● Live'};
+  if(rs.some(isLocked)) return {k:'locked',t:'🔒 Locked'};
+  var next=S.days.filter(function(x){ var r2=D.byDay[x.id]||[]; return r2.length && !r2.some(isLocked); })[0];
+  return (next && next.id===d.id) ? {k:'soon',t:'Tips open'} : {k:'up',t:'Upcoming'};
+}
 function dayChips(){
   if(!S.days.length) return '';
-  return '<div class="chips">'+S.days.map(function(d){
-    return '<button class="chip '+(UI.dayId===d.id?'on':'')+'" data-day="'+esc(d.id)+'">'+esc(d.name)+'<small>'+esc(fmtDay(d.date))+'</small></button>';
+  return '<div class="days">'+S.days.map(function(d){
+    var st=dayStatus(d);
+    return '<button class="dayb'+(UI.dayId===d.id?' on':'')+'" data-day="'+esc(d.id)+'">'+
+      '<span class="dn">'+esc(d.name)+'</span><span class="dd">'+esc(fmtDay(d.date))+'</span><span class="ds '+st.k+'">'+st.t+'</span></button>';
   }).join('')+'</div>';
 }
 function noDays(){ return '<div class="empty">No race days set up yet.</div>'; }
@@ -432,12 +490,13 @@ function vTips(){
       '<div class="stat s-butter"><div class="lbl">Tipped</div><div class="big">'+picked+'/'+races.length+'</div><div class="sub">races</div></div></div>';
   }
   if(!races.length) return out+'<div class="empty">No fields yet. Check back after acceptances.</div>';
+  out+=lockBanner(UI.dayId);
   races.forEach(function(r){
     var locked=isLocked(r), res=D.res[r.id]||{}, scr=(res.scratched||[]).map(String);
     var saved=S.me ? (D.tip[S.me.id]||{})[r.id] : null;
     var cur=UI.draft[r.id]!=null ? UI.draft[r.id] : (saved||'');
     var status = hasResult(r.id) ? '<span class="pill result">'+((D.res[r.id].status==='interim')?'Interim':'Official')+'</span>' :
-                 locked ? '<span class="pill closed">Jumped</span>' : '<span class="pill open">'+until(r.start)+'</span>';
+                 started(r) ? '<span class="pill closed">Jumped</span>' : locked ? '<span class="pill closed">🔒 Locked</span>' : '<span class="pill open">Open</span>';
     out+='<div class="card"><div class="row"><h3>'+rno(r)+esc(r.name)+'</h3><span class="sp"></span>'+status+'</div>';
     out+='<div class="muted meta">'+fmtTime(r.start)+' your time · '+r.runners.length+' runners</div>';
     if(S.me && !locked){
@@ -457,6 +516,12 @@ function vTips(){
     out+='</div>';
   });
   return out;
+}
+function lockBanner(dayId){
+  var l=dayLock(dayId); if(!l) return '';
+  var left=Date.parse(l)-Date.now();
+  if(left>0) return '<div class="lockban open"><div class="lbi">⏱</div><div><b>Tips lock '+esc(fmtWhen(l))+'</b><div>'+fmtLeft(left)+' to go. You can change your tips until then. Everyone\'s tips are revealed when they lock.</div></div></div>';
+  return '<div class="lockban shut"><div class="lbi">🔒</div><div><b>Tips locked '+esc(fmtWhen(l))+'</b><div>Everyone\'s tips are in. See them all on the <button class="lnk" data-tab="grid">Scoreboard</button>.</div></div></div>';
 }
 function resultLine(r){
   var x=D.res[r.id];
@@ -529,17 +594,18 @@ function vGrid(){
   if(UI.gridSort==='name') rows.sort(function(a,b){ return a.name.localeCompare(b.name); });
   var pinned=rows.filter(function(x){ return pins.indexOf(x.id)>=0; }), rest=rows.filter(function(x){ return pins.indexOf(x.id)<0; });
   var done=races.filter(function(r){return hasResult(r.id);}).length;
+  out+=lockBanner(UI.dayId);
 
   out+='<div class="row gtools"><div class="seg" style="margin:0"><button data-gsort="rank" class="'+(UI.gridSort==='rank'?'on':'')+'">By rank</button><button data-gsort="name" class="'+(UI.gridSort==='name'?'on':'')+'">A–Z</button></div>'+
     '<span class="sp"></span><span class="muted">'+done+'/'+races.length+' results</span></div>';
-  out+='<div class="legend"><span><i class="lg p1"></i>1st</span><span><i class="lg p2"></i>2nd</span><span><i class="lg p3"></i>3rd</span><span><i class="lg sx">✕</i>Scratched → fav</span><span>🔒 hidden until the jump</span></div>';
+  out+='<div class="legend"><span><i class="lg p1"></i>1st</span><span><i class="lg p2"></i>2nd</span><span><i class="lg p3"></i>3rd</span><span><i class="lg sx">✕</i>Scratched → fav</span><span>🔒 hidden until tips lock</span></div>';
   out+='<div class="muted note">Tap names to pin them to the top and compare.'+(pins.length?' <button data-unpin="1" class="lnk">Clear pins</button>':'')+'</div>';
 
   out+='<div class="gwrap"><table class="gtable"><thead><tr><th class="gname">Player <span class="gtot-h">Day</span></th>'+
     races.map(function(r){
       var x=D.res[r.id], w=hasResult(r.id)? x.placings.filter(function(p){return p.pos===1;})[0] : null;
       return '<th class="grace"><div class="grno">R'+r.raceNo+'</div><div class="gsub">'+
-        (w ? cloth(w.no)+'<span>'+money(w.win)+'</span>' : (isLocked(r)?'Running':fmtTime(r.start)))+'</div></th>';
+        (w ? cloth(w.no)+'<span>'+money(w.win)+'</span>' : (started(r)?'Running':fmtTime(r.start)))+'</div></th>';
     }).join('')+'</tr></thead><tbody>';
   function row(x,isPin){
     var me=S.me&&S.me.id===x.id;
@@ -595,7 +661,7 @@ function vCompare(){
   });
   out+='</tbody><tfoot><tr><td>Day</td>'+sel.map(function(id){return '<td>'+money(dayTotal(id,UI.dayId))+'</td>';}).join('')+'</tr>'+
        '<tr><td>Carnival</td>'+sel.map(function(id){return '<td>'+money(carnivalTotal(id))+'</td>';}).join('')+'</tr></tfoot></table></div>';
-  out+='<div class="muted">🔒 Other players\' tips appear once each race starts.</div>';
+  out+='<div class="muted">🔒 Other players\' tips appear when the day\'s tips lock.</div>';
   return out;
 }
 
@@ -608,14 +674,14 @@ function vRaces(){
   if(!UI.raceId || !races.some(function(r){return r.id===UI.raceId;})){
     var next=races.find(function(r){return !hasResult(r.id);}); UI.raceId=(next||races[0]).id;
   }
-  out+='<div class="chips">'+races.map(function(r){ return '<button class="chip '+(UI.raceId===r.id?'on':'')+'" data-race-sel="'+esc(r.id)+'">R'+r.raceNo+(hasResult(r.id)?' ✓':'')+'</button>'; }).join('')+'</div>';
+  out+='<div class="chips wrap">'+races.map(function(r){ return '<button class="chip '+(UI.raceId===r.id?'on':'')+'" data-race-sel="'+esc(r.id)+'">R'+r.raceNo+(hasResult(r.id)?' ✓':'')+'</button>'; }).join('')+'</div>';
   var r=D.race[UI.raceId], res=D.res[r.id]||{}, scr=(res.scratched||[]).map(String);
   var tippers={}; var nT=0;
   S.players.forEach(function(p){ var h=effHorse(r.id,(D.tip[p.id]||{})[r.id]); if(h){ (tippers[h]=tippers[h]||[]).push(p.name); nT++; } });
   var visible = isLocked(r) || S.isAdmin;
   out+='<div class="card"><h3>'+rno(r)+esc(r.name)+'</h3><div class="muted meta">'+fmtTime(r.start)+' your time'+(res.favourite?' · Fav: #'+esc(res.favourite)+' '+esc(horseName(r,res.favourite)):'')+'</div>'+
     (hasResult(r.id)?'<div class="res">'+resultLine(r)+'</div>':'')+'</div>';
-  if(!visible) out+='<div class="muted note">Everyone\'s tips are revealed when the race starts.</div>';
+  if(!visible) out+='<div class="muted note">Everyone\'s tips are revealed when tips lock.</div>';
   else {
     var top=Object.keys(tippers).sort(function(a,b){return tippers[b].length-tippers[a].length;})[0];
     if(top) out+='<div class="muted note">Crowd pick: <b>#'+esc(top)+' '+esc(horseName(r,top))+'</b> ('+tippers[top].length+' of '+nT+' tipsters)</div>';
@@ -691,7 +757,7 @@ function vAdmin(){
       if(!UI.adminRace || !D.race[UI.adminRace] || D.race[UI.adminRace].dayId!==UI.dayId){
         var nx=races.find(function(r){return !hasResult(r.id);}); UI.adminRace=(nx||races[0]).id;
       }
-      out+='<div class="chips">'+races.map(function(r){return '<button class="chip '+(UI.adminRace===r.id?'on':'')+'" data-arace="'+esc(r.id)+'">R'+r.raceNo+(hasResult(r.id)?' ✓':'')+'</button>';}).join('')+'</div>';
+      out+='<div class="chips wrap">'+races.map(function(r){return '<button class="chip '+(UI.adminRace===r.id?'on':'')+'" data-arace="'+esc(r.id)+'">R'+r.raceNo+(hasResult(r.id)?' ✓':'')+'</button>';}).join('')+'</div>';
       out+=resultForm(D.race[UI.adminRace]);
     } else out+='<div class="card muted">No fields yet. Check back after acceptances.</div>';
   }
@@ -699,10 +765,12 @@ function vAdmin(){
   out+='<h2>Race days & fields</h2><div class="card">';
   out+='<label class="f">Edit day</label><select id="dSel" style="width:100%"><option value="">+ New day</option>'+
     S.days.map(function(d){return '<option value="'+esc(d.id)+'" '+(UI.adminDay===d.id?'selected':'')+'>'+esc(d.name)+' ('+esc(d.date)+')</option>';}).join('')+'</select>';
-  var ed=D.day[UI.adminDay]||{name:'',date:'',order:''};
+  var ed=D.day[UI.adminDay]||{name:'',date:'',order:'',lockAt:''};
   out+='<div class="grid2"><div><label class="f">Name</label><input id="dName" style="width:100%" value="'+esc(ed.name)+'" placeholder="Cox Plate Day"></div>'+
     '<div><label class="f">Date</label><input id="dDate" type="date" style="width:100%" value="'+esc(ed.date)+'"></div></div>'+
-    '<label class="f">Order (1–6)</label><input id="dOrder" type="number" style="width:90px" value="'+esc(ed.order)+'">'+
+    '<div class="grid2"><div><label class="f">Order (1–6)</label><input id="dOrder" type="number" style="width:100%" value="'+esc(ed.order)+'"></div>'+
+    '<div><label class="f">Tips lock (your time)</label><input id="dLock" type="datetime-local" style="width:100%" value="'+esc(toLocalInput(ed.lockAt))+'"></div></div>'+
+    '<div class="muted" style="margin-top:4px">Leave the lock time blank to use 8:00am Perth time on race day.</div>'+
     '<label class="f">Paste fields (Melbourne times). Re-pasting a race replaces it; tips on unchanged horse numbers are kept.</label>'+
     '<textarea id="dPaste" placeholder="R1 12:40 Maiden Plate 1400m\n1 Horse One\n2 Horse Two\n3 Horse Three SCR\nR2 1:15 Next Race\n1 ..."></textarea>'+
     '<div class="row" style="margin-top:8px"><button class="btn" data-act="saveDay">Save day</button><span class="sp"></span>'+
@@ -809,7 +877,8 @@ var actions={
     }).catch(function(e){ fail(e); render(); });
   },
   saveDay:function(){
-    var p={id:UI.adminDay||'',name:val('dName').trim(),date:val('dDate'),order:val('dOrder'),paste:val('dPaste')};
+    var lk=val('dLock');
+    var p={id:UI.adminDay||'',name:val('dName').trim(),date:val('dDate'),order:val('dOrder'),paste:val('dPaste'),lockAt:lk?new Date(lk).toISOString():''};
     if(!p.name||!p.date){ toast('Name and date needed'); return; }
     admin('saveDay',p,function(st){ if(!UI.adminDay){ var nd=st.days.find(function(d){return d.name===p.name&&d.date===p.date;}); if(nd) UI.adminDay=nd.id; } UI.dayId=UI.adminDay||UI.dayId; });
   },
@@ -835,6 +904,8 @@ var actions={
   },
   clearResult:function(){ if(!confirm('Clear this result and scratchings?')) return; admin('clearResult',{raceId:UI.adminRace}); }
 };
+function toLocalInput(iso){ if(!iso) return ''; var d=new Date(iso); if(isNaN(d)) return ''; var p=function(n){return ('0'+n).slice(-2);};
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }
 function val(id){ var el=document.getElementById(id); return el?el.value:''; }
 function admin(action,payload,after){
   toast('Saving…');
