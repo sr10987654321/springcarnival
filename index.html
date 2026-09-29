@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spring Carnival Tipping</title>
+<style>
+:root{
+  --bg:#f5f2ea; --card:#fff; --ink:#1c2420; --muted:#6b7570; --line:#e3ded1;
+  --green:#0f3d2e; --green2:#1d5c45; --gold:#c9a227; --goldbg:#fbf3d6;
+  --win:#1f8a4c; --winbg:#e3f4e9; --red:#b3372c; --silver:#9aa3a8; --bronze:#b57a45;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{background:var(--green);color:#fff;padding:14px 16px 10px}
+header h1{margin:0;font-size:19px;letter-spacing:.2px}
+header .who{font-size:13px;opacity:.8;margin-top:2px}
+nav{background:var(--green);display:flex;gap:4px;padding:0 10px;overflow-x:auto;position:sticky;top:0;z-index:5;border-bottom:3px solid var(--gold)}
+nav button{background:none;border:0;color:#cfe0d8;padding:10px 10px 9px;font:inherit;font-weight:600;white-space:nowrap;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-3px}
+nav button.on{color:#fff;border-bottom-color:#fff}
+main{max-width:900px;margin:0 auto;padding:14px 12px 100px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;margin-bottom:4px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;white-space:nowrap;cursor:pointer;color:var(--ink)}
+.chip.on{background:var(--green);border-color:var(--green);color:#fff}
+.chip small{opacity:.7;margin-left:4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.card h3{margin:0 0 2px;font-size:15px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sp{flex:1}
+.muted{color:var(--muted);font-size:13px}
+.pill{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.4px}
+.pill.open{background:var(--winbg);color:var(--win)}
+.pill.closed{background:#eee;color:#666}
+.pill.result{background:var(--goldbg);color:#7a5d00}
+select,input,textarea{font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;color:var(--ink);max-width:100%}
+select.pick{width:100%;margin-top:8px;padding:10px}
+textarea{width:100%;min-height:110px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+.btn{background:var(--green);color:#fff;border:0;border-radius:8px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer}
+.btn.gold{background:var(--gold);color:#1c1c1c}
+.btn.ghost{background:none;color:var(--green);border:1px solid var(--line)}
+.btn.small{padding:5px 10px;font-size:13px}
+.btn.danger{background:none;color:var(--red);border:1px solid #e9c9c5}
+.btn:disabled{opacity:.45;cursor:default}
+.savebar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:10px;z-index:6;box-shadow:0 -4px 14px rgba(0,0,0,.06)}
+.savebar .btn{flex:0 0 auto}
+.pts{font-weight:700;color:var(--win)}
+.zero{color:var(--muted)}
+.res{font-size:13px;margin-top:6px;color:var(--muted)}
+.res b{color:var(--ink)}
+.tbl-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:12px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-size:12px;color:var(--muted);font-weight:600;background:#faf8f2;position:sticky;top:0}
+th.sort{cursor:pointer}
+td.num,th.num{text-align:right}
+tr.me td{background:#f1f8f4}
+tr.click{cursor:pointer}
+tfoot td{font-weight:700;background:#faf8f2}
+.rank{display:inline-flex;width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:#eee}
+.r1{background:var(--gold);color:#fff}.r2{background:var(--silver);color:#fff}.r3{background:var(--bronze);color:#fff}
+.cell-h{font-size:13px}
+.cell-p{font-size:12px}
+td.hit{background:var(--winbg)}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--gold)}
+.pos{display:inline-block;min-width:34px;font-weight:700;font-size:12px}
+.scr{text-decoration:line-through;color:var(--muted)}
+.hero{display:flex;gap:10px;margin-bottom:12px}
+.hero .card{flex:1;margin:0;text-align:center}
+.hero .big{font-size:22px;font-weight:800;color:var(--green)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:10px}
+.seg button{border:0;background:var(--card);padding:7px 14px;font:inherit;font-size:13px;cursor:pointer}
+.seg button.on{background:var(--green);color:#fff}
+h2{font-size:16px;margin:18px 0 8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+label.f{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+.checks{display:flex;flex-wrap:wrap;gap:6px}
+.checks label{border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:13px;cursor:pointer}
+.plc{display:grid;grid-template-columns:60px 1fr 80px 80px 30px;gap:6px;align-items:center;margin-bottom:6px}
+.plc input,.plc select{width:100%;padding:7px}
+#toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#222;color:#fff;padding:9px 16px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90%}
+#toast.show{opacity:1}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:30;padding:16px}
+.modal .card{max-width:560px;width:100%}
+.empty{text-align:center;padding:30px 10px;color:var(--muted)}
+.loading{text-align:center;padding:60px 10px;color:var(--muted)}
+@media (max-width:520px){ .plc{grid-template-columns:48px 1fr 64px 64px 26px} .hero .big{font-size:19px} }
+</style>
+</head>
+<body>
+<header><h1 id="title">Spring Carnival Tipping</h1><div class="who" id="who"></div></header>
+<nav id="tabs"></nav>
+<main id="view"><div class="loading">Loading…</div></main>
+<div id="toast"></div>
+
+<script>
+/* ============ Plumbing ============ */
+var S = null;               // server state
+var P = {};                 // url params
+var TOKEN = '', ADMIN = '';
+var UI = { tab:'tips', dayId:null, lbMode:'carnival', statMode:'carnival', statSort:'total', raceId:null,
+           compare:[], draft:{}, adminRace:null, adminDay:'' };
+var D = {};                 // derived lookups
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function money(n){ return '$' + (Number(n)||0).toFixed(2); }
+function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove('show');},2600); }
+function api(fn){
+  var args=[].slice.call(arguments,1);
+  return new Promise(function(res,rej){
+    var r=google.script.run.withSuccessHandler(res).withFailureHandler(function(e){rej(e);});
+    r[fn].apply(r,args);
+  });
+}
+function store(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v);}catch(e){ return null; } }
+function getParams(){
+  return new Promise(function(res){
+    try{ if(window.google && google.script && google.script.url){ google.script.url.getLocation(function(l){res(l.parameter||{});}); return; } }catch(e){}
+    var o={}; new URLSearchParams(location.search).forEach(function(v,k){o[k]=v;}); res(o);
+  });
+}
+function fail(e){ toast((e && e.message) || String(e)); }
+
+/* ============ Time ============ */
+function fmtTime(iso){ return new Date(iso).toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'}); }
+function fmtDay(d){ if(!d) return ''; var x=new Date(d+'T12:00:00'); return x.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'}); }
+function until(iso){
+  var ms=Date.parse(iso)-Date.now(); if(ms<=0) return 'closed';
+  var m=Math.floor(ms/60000), h=Math.floor(m/60), d=Math.floor(h/24);
+  if(d>0) return 'closes in '+d+'d '+(h%24)+'h';
+  if(h>0) return 'closes in '+h+'h '+(m%60)+'m';
+  return 'closes in '+m+'m';
+}
+function isLocked(r){ return Date.parse(r.start) <= Date.now(); }
+
+/* ============ Derived data & scoring ============ */
+function derive(){
+  D.race={}; D.day={}; D.res={}; D.byDay={}; D.tip={}; D.player={};
+  S.players.forEach(function(p){ D.player[p.id]=p; });
+  S.days.forEach(function(d){ D.day[d.id]=d; D.byDay[d.id]=[]; });
+  S.races.forEach(function(r){ D.race[r.id]=r; (D.byDay[r.dayId]=D.byDay[r.dayId]||[]).push(r); });
+  Object.keys(D.byDay).forEach(function(k){ D.byDay[k].sort(function(a,b){return a.raceNo-b.raceNo;}); });
+  S.results.forEach(function(x){ D.res[x.raceId]=x; });
+  S.tips.forEach(function(t){ (D.tip[t.p]=D.tip[t.p]||{})[t.r]=String(t.h); });
+}
+function hasResult(raceId){ var x=D.res[raceId]; return !!(x && x.placings && x.placings.length); }
+function effHorse(raceId,h){
+  var x=D.res[raceId]; if(!x||!h) return h;
+  if((x.scratched||[]).map(String).indexOf(String(h))>=0 && x.favourite) return String(x.favourite);
+  return String(h);
+}
+function points(pid,raceId){
+  if(!hasResult(raceId)) return null;
+  var h=effHorse(raceId,(D.tip[pid]||{})[raceId]); if(!h) return 0;
+  var s=0; D.res[raceId].placings.forEach(function(pl){ if(String(pl.no)===h) s+=(Number(pl.win)||0)+(Number(pl.place)||0); });
+  return Math.round(s*100)/100;
+}
+function dayTotal(pid,dayId){ return (D.byDay[dayId]||[]).reduce(function(s,r){ return s+(points(pid,r.id)||0); },0); }
+function carnivalTotal(pid){ return S.days.reduce(function(s,d){ return s+dayTotal(pid,d.id); },0); }
+function ranked(list,key){
+  var arr=list.slice().sort(function(a,b){ return b[key]-a[key] || a.name.localeCompare(b.name); });
+  arr.forEach(function(x,i){ x.rank = (i>0 && Math.abs(arr[i-1][key]-x[key])<0.001) ? arr[i-1].rank : i+1; });
+  return arr;
+}
+function horseName(race,no){
+  if(!no) return '';
+  var r=(race.runners||[]).find(function(x){return String(x.no)===String(no);});
+  return r ? r.name : '#'+no;
+}
+function placingOf(raceId,no){
+  var x=D.res[raceId]; if(!x) return null;
+  var p=(x.placings||[]).find(function(pl){ return String(pl.no)===String(no); });
+  return p || null;
+}
+function ordinal(n){ return ['','1st','2nd','3rd'][n] || (n+'th'); }
+function defaultDay(){
+  if(!S.days.length) return null;
+  var up=S.races.filter(function(r){return !isLocked(r);}).sort(function(a,b){return Date.parse(a.start)-Date.parse(b.start);})[0];
+  if(up) return up.dayId;
+  var withRes=S.days.filter(function(d){ return (D.byDay[d.id]||[]).some(function(r){return hasResult(r.id);}); });
+  return (withRes.length ? withRes[withRes.length-1] : S.days[0]).id;
+}
+
+/* ============ Shell ============ */
+var TABS=[['tips','My tips'],['board','Leaderboard'],['compare','Compare'],['races','Races'],['stats','Stats']];
+function renderShell(){
+  document.getElementById('title').textContent=S.title;
+  document.title=S.title;
+  document.getElementById('who').textContent = S.me ? ('Tipping as '+S.me.name) : (S.isAdmin ? 'Admin' : 'Viewing only — use your personal link to tip');
+  var tabs=TABS.slice(); if(S.isAdmin) tabs.push(['admin','Admin']);
+  document.getElementById('tabs').innerHTML=tabs.map(function(t){
+    return '<button data-tab="'+t[0]+'" class="'+(UI.tab===t[0]?'on':'')+'">'+t[1]+'</button>'; }).join('');
+}
+function render(){
+  renderShell();
+  var v=document.getElementById('view');
+  var fn={tips:vTips,board:vBoard,compare:vCompare,races:vRaces,stats:vStats,admin:vAdmin}[UI.tab]||vTips;
+  v.innerHTML = fn();
+  var bar=document.getElementById('savebar'); if(bar) bar.remove();
+  if(UI.tab==='tips' && S.me) renderSaveBar();
+}
+function dayChips(){
+  if(!S.days.length) return '';
+  return '<div class="chips">'+S.days.map(function(d){
+    return '<button class="chip '+(UI.dayId===d.id?'on':'')+'" data-day="'+esc(d.id)+'">'+esc(d.name)+'<small>'+esc(fmtDay(d.date))+'</small></button>';
+  }).join('')+'</div>';
+}
+function noDays(){ return '<div class="empty">No race days set up yet.</div>'; }
+
+/* ============ My tips ============ */
+function vTips(){
+  if(!S.days.length) return noDays();
+  var races=D.byDay[UI.dayId]||[];
+  var out=dayChips();
+  if(S.me){
+    var dayRows=ranked(S.players.map(function(p){return {id:p.id,name:p.name,t:dayTotal(p.id,UI.dayId)};}),'t');
+    var carRows=ranked(S.players.map(function(p){return {id:p.id,name:p.name,t:carnivalTotal(p.id)};}),'t');
+    var dm=dayRows.find(function(x){return x.id===S.me.id;}), cm=carRows.find(function(x){return x.id===S.me.id;});
+    var picked=races.filter(function(r){ return (UI.draft[r.id]!=null ? UI.draft[r.id] : (D.tip[S.me.id]||{})[r.id]); }).length;
+    out+='<div class="hero">'+
+      '<div class="card"><div class="muted">This day</div><div class="big">'+money(dm.t)+'</div><div class="muted">'+ordinal(dm.rank)+' of '+dayRows.length+'</div></div>'+
+      '<div class="card"><div class="muted">Carnival</div><div class="big">'+money(cm.t)+'</div><div class="muted">'+ordinal(cm.rank)+' of '+carRows.length+'</div></div>'+
+      '<div class="card"><div class="muted">Tipped</div><div class="big">'+picked+'/'+races.length+'</div><div class="muted">races</div></div></div>';
+  }
+  if(!races.length) return out+'<div class="empty">Fields for this day haven\'t been loaded yet.</div>';
+  races.forEach(function(r){
+    var locked=isLocked(r), res=D.res[r.id]||{}, scr=(res.scratched||[]).map(String);
+    var saved=S.me ? (D.tip[S.me.id]||{})[r.id] : null;
+    var cur=UI.draft[r.id]!=null ? UI.draft[r.id] : (saved||'');
+    var status = hasResult(r.id) ? '<span class="pill result">Result</span>' :
+                 locked ? '<span class="pill closed">Closed</span>' : '<span class="pill open">'+until(r.start)+'</span>';
+    out+='<div class="card"><div class="row"><h3>R'+r.raceNo+' · '+esc(r.name)+'</h3><span class="sp"></span>'+status+'</div>';
+    out+='<div class="muted">'+fmtTime(r.start)+' your time · '+r.runners.length+' runners</div>';
+    if(S.me && !locked){
+      out+='<select class="pick" data-race="'+esc(r.id)+'"><option value="">— pick a horse —</option>'+
+        r.runners.map(function(h){ var s=scr.indexOf(String(h.no))>=0;
+          return '<option value="'+esc(h.no)+'" '+(String(cur)===String(h.no)?'selected':'')+(s?' disabled':'')+'>'+esc(h.no)+'. '+esc(h.name)+(s?' (SCR)':'')+'</option>'; }).join('')+'</select>';
+      if(cur && scr.indexOf(String(cur))>=0) out+='<div class="res" style="color:var(--red)">Your horse is scratched — pick again or it switches to the favourite.</div>';
+    } else if(S.me){
+      out+='<div style="margin-top:6px">Your tip: <b>'+(saved? esc(saved+'. '+horseName(r,saved)) : '<span class="muted">none</span>')+'</b>';
+      var eh=effHorse(r.id,saved);
+      if(saved && eh!==String(saved)) out+=' <span class="muted">→ scratched, runs as fav #'+esc(eh)+' '+esc(horseName(r,eh))+'</span>';
+      var pt=points(S.me.id,r.id);
+      if(pt!=null) out+=' <span class="sp"></span><span class="'+(pt>0?'pts':'zero')+'" style="float:right">'+(pt>0?'+'+money(pt):'$0.00')+'</span>';
+      out+='</div>';
+    }
+    if(hasResult(r.id)) out+='<div class="res">'+resultLine(r)+'</div>';
+    out+='</div>';
+  });
+  return out;
+}
+function resultLine(r){
+  var x=D.res[r.id];
+  return x.placings.slice().sort(function(a,b){return a.pos-b.pos;}).map(function(pl){
+    return '<b>'+ordinal(pl.pos)+'</b> '+esc(pl.no)+'. '+esc(horseName(r,pl.no))+' '+(pl.win?money(pl.win)+' / ':'')+money(pl.place);
+  }).join(' · ') + (x.status==='interim'?' <i>(interim)</i>':'');
+}
+function dirtyCount(){
+  if(!S.me) return 0;
+  return Object.keys(UI.draft).filter(function(k){ return String(UI.draft[k]) !== String((D.tip[S.me.id]||{})[k]||''); }).length;
+}
+function renderSaveBar(){
+  var n=dirtyCount();
+  var b=document.createElement('div'); b.className='savebar'; b.id='savebar';
+  b.innerHTML='<span class="muted sp">'+(n? n+' unsaved change'+(n>1?'s':'') : 'All tips saved')+'</span>'+
+    '<button class="btn gold" data-act="saveTips" '+(n?'':'disabled')+'>Save tips</button>';
+  document.body.appendChild(b);
+}
+
+/* ============ Leaderboard ============ */
+function vBoard(){
+  if(!S.days.length) return noDays();
+  var out='<div class="seg"><button data-lb="carnival" class="'+(UI.lbMode==='carnival'?'on':'')+'">Carnival</button><button data-lb="day" class="'+(UI.lbMode==='day'?'on':'')+'">By day</button></div>';
+  if(UI.lbMode==='day'){
+    out+=dayChips();
+    var races=D.byDay[UI.dayId]||[];
+    var rows=ranked(S.players.map(function(p){
+      var hits=races.filter(function(r){return (points(p.id,r.id)||0)>0;}).length;
+      return {id:p.id,name:p.name,t:dayTotal(p.id,UI.dayId),hits:hits};
+    }),'t');
+    var done=races.filter(function(r){return hasResult(r.id);}).length;
+    out+='<div class="muted" style="margin-bottom:8px">'+done+' of '+races.length+' results in. Tap a name to compare.</div>';
+    out+='<div class="tbl-wrap"><table><thead><tr><th></th><th>Player</th><th class="num">Collects</th><th class="num">Total</th></tr></thead><tbody>'+
+      rows.map(function(x){ return '<tr class="click '+(S.me&&x.id===S.me.id?'me':'')+'" data-cmp="'+esc(x.id)+'"><td>'+rankBadge(x.rank)+'</td><td>'+esc(x.name)+'</td><td class="num">'+x.hits+'</td><td class="num"><b>'+money(x.t)+'</b></td></tr>'; }).join('')+
+      '</tbody></table></div>';
+  } else {
+    var rows2=ranked(S.players.map(function(p){
+      var o={id:p.id,name:p.name,t:carnivalTotal(p.id)}; S.days.forEach(function(d){o[d.id]=dayTotal(p.id,d.id);}); return o;
+    }),'t');
+    var dayWin={};
+    S.days.forEach(function(d){ var best=Math.max.apply(null,rows2.map(function(x){return x[d.id];})); dayWin[d.id]=best>0?best:null; });
+    out+='<div class="muted" style="margin-bottom:8px">Top 3 over the carnival take the prizes. Gold figures are day winners.</div>';
+    out+='<div class="tbl-wrap"><table><thead><tr><th></th><th>Player</th><th class="num">Total</th>'+
+      S.days.map(function(d){return '<th class="num">'+esc(d.name)+'</th>';}).join('')+'</tr></thead><tbody>'+
+      rows2.map(function(x){ return '<tr class="click '+(S.me&&x.id===S.me.id?'me':'')+'" data-cmp="'+esc(x.id)+'"><td>'+rankBadge(x.rank)+'</td><td>'+esc(x.name)+'</td><td class="num"><b>'+money(x.t)+'</b></td>'+
+        S.days.map(function(d){ var w=dayWin[d.id]!=null && Math.abs(x[d.id]-dayWin[d.id])<0.001;
+          return '<td class="num" style="'+(w?'color:#9a7600;font-weight:700':'')+'">'+(x[d.id]?money(x[d.id]):'<span class="zero">–</span>')+'</td>'; }).join('')+'</tr>'; }).join('')+
+      '</tbody></table></div>';
+  }
+  return out;
+}
+function rankBadge(r){ return '<span class="rank '+(r<=3?'r'+r:'')+'">'+r+'</span>'; }
+
+/* ============ Compare ============ */
+function vCompare(){
+  if(!S.days.length) return noDays();
+  if(!UI.compare.length){
+    var lead=ranked(S.players.map(function(p){return {id:p.id,name:p.name,t:carnivalTotal(p.id)};}),'t').slice(0,2).map(function(x){return x.id;});
+    UI.compare = S.me ? [S.me.id].concat(lead.filter(function(i){return i!==S.me.id;}).slice(0,1)) : lead;
+  }
+  var out='<div class="muted" style="margin-bottom:6px">Pick players to compare (up to 6):</div><div class="chips" style="flex-wrap:wrap">'+
+    S.players.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(p){
+      return '<button class="chip '+(UI.compare.indexOf(p.id)>=0?'on':'')+'" data-pick="'+esc(p.id)+'">'+esc(p.name)+'</button>'; }).join('')+'</div>';
+  out+=dayChips();
+  var races=D.byDay[UI.dayId]||[], sel=UI.compare.filter(function(id){return D.player[id];});
+  if(!sel.length) return out+'<div class="empty">Select some players.</div>';
+  out+='<div class="tbl-wrap"><table><thead><tr><th>Race</th>'+sel.map(function(id){return '<th>'+esc(D.player[id].name)+'</th>';}).join('')+'</tr></thead><tbody>';
+  races.forEach(function(r){
+    out+='<tr><td><b>R'+r.raceNo+'</b><div class="muted cell-p">'+fmtTime(r.start)+'</div></td>';
+    sel.forEach(function(id){
+      var h=(D.tip[id]||{})[r.id];
+      if(!h){
+        var hidden=!isLocked(r) && !(S.me&&S.me.id===id) && !S.isAdmin;
+        out+='<td class="muted">'+(hidden?'🔒':'–')+'</td>'; return;
+      }
+      var pt=points(id,r.id);
+      out+='<td class="'+(pt>0?'hit':'')+'"><div class="cell-h">'+esc(h)+'. '+esc(horseName(r,h))+'</div>'+
+        (pt!=null?'<div class="cell-p '+(pt>0?'pts':'zero')+'">'+(pt>0?'+'+money(pt):'$0.00')+'</div>':'')+'</td>';
+    });
+    out+='</tr>';
+  });
+  out+='</tbody><tfoot><tr><td>Day</td>'+sel.map(function(id){return '<td>'+money(dayTotal(id,UI.dayId))+'</td>';}).join('')+'</tr>'+
+       '<tr><td>Carnival</td>'+sel.map(function(id){return '<td>'+money(carnivalTotal(id))+'</td>';}).join('')+'</tr></tfoot></table></div>';
+  out+='<div class="muted">🔒 Other players\' tips appear once each race starts.</div>';
+  return out;
+}
+
+/* ============ Races ============ */
+function vRaces(){
+  if(!S.days.length) return noDays();
+  var races=D.byDay[UI.dayId]||[];
+  var out=dayChips();
+  if(!races.length) return out+'<div class="empty">No fields loaded for this day.</div>';
+  if(!UI.raceId || !races.some(function(r){return r.id===UI.raceId;})){
+    var next=races.find(function(r){return !hasResult(r.id);}); UI.raceId=(next||races[0]).id;
+  }
+  out+='<div class="chips">'+races.map(function(r){ return '<button class="chip '+(UI.raceId===r.id?'on':'')+'" data-race-sel="'+esc(r.id)+'">R'+r.raceNo+(hasResult(r.id)?' ✓':'')+'</button>'; }).join('')+'</div>';
+  var r=D.race[UI.raceId], res=D.res[r.id]||{}, scr=(res.scratched||[]).map(String);
+  var tippers={}; var nT=0;
+  S.players.forEach(function(p){ var h=effHorse(r.id,(D.tip[p.id]||{})[r.id]); if(h){ (tippers[h]=tippers[h]||[]).push(p.name); nT++; } });
+  var visible = isLocked(r) || S.isAdmin;
+  out+='<div class="card"><h3>R'+r.raceNo+' · '+esc(r.name)+'</h3><div class="muted">'+fmtTime(r.start)+' your time'+(res.favourite?' · Fav: #'+esc(res.favourite)+' '+esc(horseName(r,res.favourite)):'')+'</div>'+
+    (hasResult(r.id)?'<div class="res">'+resultLine(r)+'</div>':'')+'</div>';
+  if(!visible) out+='<div class="muted" style="margin-bottom:8px">Everyone\'s tips are revealed when the race starts.</div>';
+  else {
+    var top=Object.keys(tippers).sort(function(a,b){return tippers[b].length-tippers[a].length;})[0];
+    if(top) out+='<div class="muted" style="margin-bottom:8px">Crowd pick: <b>#'+esc(top)+' '+esc(horseName(r,top))+'</b> ('+tippers[top].length+' of '+nT+' tipsters)</div>';
+  }
+  out+='<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Horse</th><th>Result</th><th>Tipped by</th></tr></thead><tbody>'+
+    r.runners.map(function(h){
+      var s=scr.indexOf(String(h.no))>=0, pl=placingOf(r.id,h.no), who=visible?(tippers[String(h.no)]||[]):[];
+      var pct=nT?Math.round(who.length/nT*100):0;
+      return '<tr><td>'+esc(h.no)+'</td><td class="'+(s?'scr':'')+'">'+esc(h.name)+(String(res.favourite)===String(h.no)?' <span class="pill result">Fav</span>':'')+'</td>'+
+        '<td>'+(pl?'<span class="pos">'+ordinal(pl.pos)+'</span>'+(pl.win?money(pl.win)+' / ':'')+money(pl.place):(s?'<span class="muted">SCR</span>':''))+'</td>'+
+        '<td style="white-space:normal;min-width:140px">'+(visible?(who.length?'<b>'+who.length+'</b> <span class="muted">'+esc(who.join(', '))+'</span><div class="bar"><i style="width:'+pct+'%"></i></div>':'<span class="zero">–</span>'):'<span class="muted">🔒</span>')+'</td></tr>';
+    }).join('')+'</tbody></table></div>';
+  return out;
+}
+
+/* ============ Stats ============ */
+function vStats(){
+  if(!S.days.length) return noDays();
+  var out='<div class="seg"><button data-sm="carnival" class="'+(UI.statMode==='carnival'?'on':'')+'">Carnival</button><button data-sm="day" class="'+(UI.statMode==='day'?'on':'')+'">By day</button></div>';
+  var races;
+  if(UI.statMode==='day'){ out+=dayChips(); races=(D.byDay[UI.dayId]||[]); }
+  else races=S.races.slice();
+  races=races.filter(function(r){return hasResult(r.id);});
+  if(!races.length) return out+'<div class="empty">Stats appear once results are in.</div>';
+  var collects=[];
+  var rows=S.players.map(function(p){
+    var o={id:p.id,name:p.name,tips:0,wins:0,hits:0,total:0,best:0};
+    races.forEach(function(r){
+      var h=(D.tip[p.id]||{})[r.id]; if(!h) return;
+      o.tips++;
+      var pt=points(p.id,r.id)||0, pl=placingOf(r.id,effHorse(r.id,h));
+      if(pl && pl.pos===1) o.wins++;
+      if(pt>0){ o.hits++; o.total+=pt; o.best=Math.max(o.best,pt);
+        collects.push({name:p.name,race:r,h:effHorse(r.id,h),pt:pt}); }
+    });
+    o.strike=o.tips?o.hits/o.tips*100:0;
+    o.avg=o.hits?o.total/o.hits:0;
+    return o;
+  });
+  var k=UI.statSort;
+  rows.sort(function(a,b){ return k==='name' ? a.name.localeCompare(b.name) : (b[k]-a[k]); });
+  var cols=[['name','Player'],['total','Total'],['hits','Collects'],['wins','Winners'],['strike','Strike %'],['avg','Avg collect'],['best','Best']];
+  out+='<div class="muted" style="margin-bottom:6px">'+races.length+' races with results. Tap a heading to sort.</div>';
+  out+='<div class="tbl-wrap"><table><thead><tr>'+cols.map(function(c){return '<th class="sort '+(c[0]!=='name'?'num':'')+'" data-sort="'+c[0]+'">'+c[1]+(k===c[0]?' ▾':'')+'</th>';}).join('')+'</tr></thead><tbody>'+
+    rows.map(function(x){ return '<tr class="'+(S.me&&x.id===S.me.id?'me':'')+'"><td>'+esc(x.name)+'</td><td class="num"><b>'+money(x.total)+'</b></td><td class="num">'+x.hits+'/'+x.tips+'</td><td class="num">'+x.wins+'</td><td class="num">'+x.strike.toFixed(0)+'%</td><td class="num">'+money(x.avg)+'</td><td class="num">'+money(x.best)+'</td></tr>'; }).join('')+
+    '</tbody></table></div>';
+
+  collects.sort(function(a,b){return b.pt-a.pt;});
+  out+='<h2>Biggest collects</h2><div class="tbl-wrap"><table><tbody>'+collects.slice(0,8).map(function(c){
+    return '<tr><td>'+esc(c.name)+'</td><td>'+esc(D.day[c.race.dayId]?D.day[c.race.dayId].name:'')+' R'+c.race.raceNo+'</td><td>'+esc(c.h)+'. '+esc(horseName(c.race,c.h))+'</td><td class="num pts">'+money(c.pt)+'</td></tr>'; }).join('')+'</tbody></table></div>';
+
+  // Missed roughies: best-paying winners nobody (or few) tipped
+  var miss=races.map(function(r){ var w=D.res[r.id].placings.find(function(p){return p.pos===1;}); if(!w) return null;
+    var n=S.players.filter(function(p){return effHorse(r.id,(D.tip[p.id]||{})[r.id])===String(w.no);}).length;
+    return {r:r,w:w,n:n}; }).filter(Boolean).sort(function(a,b){return b.w.win-a.w.win;}).slice(0,5);
+  out+='<h2>Best-paying winners</h2><div class="tbl-wrap"><table><tbody>'+miss.map(function(m){
+    return '<tr><td>'+esc(D.day[m.r.dayId]?D.day[m.r.dayId].name:'')+' R'+m.r.raceNo+'</td><td>'+esc(m.w.no)+'. '+esc(horseName(m.r,m.w.no))+'</td><td class="num">'+money(m.w.win)+'</td><td class="num muted">'+m.n+' tipped</td></tr>'; }).join('')+'</tbody></table></div>';
+  return out;
+}
+
+/* ============ Admin ============ */
+function vAdmin(){
+  var out='';
+  // --- Results
+  out+='<h2>Results</h2>';
+  if(!S.days.length) out+='<div class="card muted">Add a race day first.</div>';
+  else {
+    out+=dayChips();
+    var races=D.byDay[UI.dayId]||[];
+    if(races.length){
+      if(!UI.adminRace || !D.race[UI.adminRace] || D.race[UI.adminRace].dayId!==UI.dayId){
+        var nx=races.find(function(r){return !hasResult(r.id);}); UI.adminRace=(nx||races[0]).id;
+      }
+      out+='<div class="chips">'+races.map(function(r){return '<button class="chip '+(UI.adminRace===r.id?'on':'')+'" data-arace="'+esc(r.id)+'">R'+r.raceNo+(hasResult(r.id)?' ✓':'')+'</button>';}).join('')+'</div>';
+      out+=resultForm(D.race[UI.adminRace]);
+    } else out+='<div class="card muted">No fields loaded for this day.</div>';
+  }
+  // --- Days
+  out+='<h2>Race days & fields</h2><div class="card">';
+  out+='<label class="f">Edit day</label><select id="dSel" style="width:100%"><option value="">+ New day</option>'+
+    S.days.map(function(d){return '<option value="'+esc(d.id)+'" '+(UI.adminDay===d.id?'selected':'')+'>'+esc(d.name)+' ('+esc(d.date)+')</option>';}).join('')+'</select>';
+  var ed=D.day[UI.adminDay]||{name:'',date:'',order:''};
+  out+='<div class="grid2"><div><label class="f">Name</label><input id="dName" style="width:100%" value="'+esc(ed.name)+'" placeholder="Cox Plate Day"></div>'+
+    '<div><label class="f">Date</label><input id="dDate" type="date" style="width:100%" value="'+esc(ed.date)+'"></div></div>'+
+    '<label class="f">Order (1–6)</label><input id="dOrder" type="number" style="width:90px" value="'+esc(ed.order)+'">'+
+    '<label class="f">Paste fields (Melbourne times). Re-pasting a race replaces it; tips on unchanged horse numbers are kept.</label>'+
+    '<textarea id="dPaste" placeholder="R1 12:40 Maiden Plate 1400m\n1 Horse One\n2 Horse Two\n3 Horse Three SCR\nR2 1:15 Next Race\n1 ..."></textarea>'+
+    '<div class="row" style="margin-top:8px"><button class="btn" data-act="saveDay">Save day</button><span class="sp"></span>'+
+    (UI.adminDay?'<button class="btn danger small" data-act="deleteDay">Delete day</button>':'')+'</div></div>';
+  // --- Players
+  out+='<h2>Players ('+S.players.length+')</h2><div class="card">'+
+    '<label class="f">Add players — one per line: Name, email (email optional)</label><textarea id="pAdd" style="min-height:80px" placeholder="Jane Smith, jane@example.com"></textarea>'+
+    '<div class="row" style="margin-top:8px"><button class="btn" data-act="addPlayers">Add players</button><span class="sp"></span><button class="btn ghost" data-act="allLinks">All links</button></div></div>';
+  if(S.players.length){
+    out+='<div class="tbl-wrap"><table><thead><tr><th>Player</th><th>Tips</th><th></th></tr></thead><tbody>'+
+      S.players.map(function(p){
+        var n=Object.keys(D.tip[p.id]||{}).length;
+        return '<tr><td>'+esc(p.name)+'<div class="muted cell-p">'+esc(p.email||'')+'</div></td><td>'+n+'</td><td style="text-align:right">'+
+          '<button class="btn ghost small" data-link="'+esc(p.id)+'">Link</button> '+
+          '<button class="btn ghost small" data-reset="'+esc(p.id)+'">New link</button> '+
+          '<button class="btn danger small" data-remove="'+esc(p.id)+'">Remove</button></td></tr>'; }).join('')+
+      '</tbody></table></div>';
+  }
+  // --- Settings
+  out+='<h2>Settings</h2><div class="card"><label class="f">Competition title</label><input id="cTitle" style="width:100%" value="'+esc(S.title)+'">'+
+    '<label class="f">Results source URL (used by the automatic results check)</label><input id="cUrl" style="width:100%" value="'+esc(S.resultsUrl||'')+'">'+
+    '<div class="row" style="margin-top:8px"><button class="btn" data-act="saveCfg">Save settings</button><button class="btn ghost" data-act="fetchNow">Check results now</button></div></div>';
+  return out;
+}
+function resultForm(r){
+  var res=D.res[r.id]||{placings:[],scratched:[],favourite:'',status:'final'};
+  var scr=(res.scratched||[]).map(String);
+  var pl=res.placings && res.placings.length ? res.placings.slice().sort(function(a,b){return a.pos-b.pos;}) : [{pos:1},{pos:2},{pos:3}];
+  if(UI.extraRows && UI.extraRows[r.id]) for(var i=0;i<UI.extraRows[r.id];i++) pl.push({pos:pl.length?pl[pl.length-1].pos:1});
+  var opts=function(sel){ return '<option value=""></option>'+r.runners.map(function(h){return '<option value="'+esc(h.no)+'" '+(String(sel)===String(h.no)?'selected':'')+'>'+esc(h.no)+'. '+esc(h.name)+'</option>';}).join(''); };
+  var out='<div class="card" id="resForm" data-race="'+esc(r.id)+'"><h3>R'+r.raceNo+' · '+esc(r.name)+'</h3><div class="muted">'+fmtTime(r.start)+' your time</div>';
+  out+='<label class="f">Scratchings (tips on these switch to the favourite)</label><div class="checks">'+r.runners.map(function(h){
+    return '<label><input type="checkbox" class="scrck" value="'+esc(h.no)+'" '+(scr.indexOf(String(h.no))>=0?'checked':'')+'> '+esc(h.no)+'</label>'; }).join('')+'</div>';
+  out+='<label class="f">Starting favourite</label><select id="rFav" style="width:100%">'+opts(res.favourite)+'</select>';
+  out+='<label class="f">Placings — tote dividends per $1 (enter exactly as paid, incl. dead heats)</label>'+
+    '<div class="plc muted" style="font-size:11px"><span>Pos</span><span>Horse</span><span>Win $</span><span>Place $</span><span></span></div>';
+  pl.forEach(function(p){
+    out+='<div class="plc"><select class="pPos">'+[1,2,3,4].map(function(n){return '<option '+(Number(p.pos)===n?'selected':'')+'>'+n+'</option>';}).join('')+'</select>'+
+      '<select class="pNo">'+opts(p.no)+'</select><input class="pWin" inputmode="decimal" value="'+(p.win||'')+'" placeholder="—">'+
+      '<input class="pPlace" inputmode="decimal" value="'+(p.place||'')+'"><span></span></div>';
+  });
+  out+='<div class="row" style="margin-top:4px"><button class="btn ghost small" data-act="addRow">+ Dead-heat row</button><span class="sp"></span>'+
+    '<label class="muted"><input type="checkbox" id="rInterim" '+(res.status==='interim'?'checked':'')+'> Interim</label></div>';
+  out+='<div class="row" style="margin-top:10px"><button class="btn" data-act="saveResult">Save result</button><span class="sp"></span>'+
+    (hasResult(r.id)||scr.length?'<button class="btn danger small" data-act="clearResult">Clear</button>':'')+'</div></div>';
+  return out;
+}
+function showModal(title,text){
+  var m=document.createElement('div'); m.className='modal';
+  m.innerHTML='<div class="card"><div class="row"><h3>'+esc(title)+'</h3><span class="sp"></span><button class="btn ghost small" data-close>Close</button></div>'+
+    '<textarea readonly style="min-height:220px;margin-top:8px">'+esc(text)+'</textarea><div class="row" style="margin-top:8px"><button class="btn" data-copy>Copy</button></div></div>';
+  document.body.appendChild(m);
+  var ta=m.querySelector('textarea'); ta.focus(); ta.select();
+  m.addEventListener('click',function(e){
+    if(e.target===m || e.target.hasAttribute('data-close')) m.remove();
+    if(e.target.hasAttribute('data-copy')){ ta.select(); var ok=false; try{ ok=document.execCommand('copy'); }catch(x){}
+      if(!ok && navigator.clipboard) navigator.clipboard.writeText(text).then(function(){toast('Copied');},function(){toast('Select the text and copy it');}); else toast(ok?'Copied':'Select the text and copy it'); }
+  });
+}
+function linkFor(p){ return S.appUrl + '?t=' + p.token; }
+
+/* ============ Events ============ */
+document.addEventListener('click',function(e){
+  var t=e.target.closest('button,th,tr'); if(!t) return;
+  var d=t.dataset;
+  if(d.tab){ UI.tab=d.tab; render(); window.scrollTo(0,0); return; }
+  if(d.day){ UI.dayId=d.day; render(); return; }
+  if(d.lb){ UI.lbMode=d.lb; render(); return; }
+  if(d.sm){ UI.statMode=d.sm; render(); return; }
+  if(d.sort){ UI.statSort=d.sort; render(); return; }
+  if(d.raceSel){ UI.raceId=d.raceSel; render(); return; }
+  if(d.arace){ UI.adminRace=d.arace; render(); return; }
+  if(d.cmp){ var ids=[d.cmp]; if(S.me && S.me.id!==d.cmp) ids.unshift(S.me.id); UI.compare=ids; UI.tab='compare'; render(); window.scrollTo(0,0); return; }
+  if(d.pick){ var i=UI.compare.indexOf(d.pick);
+    if(i>=0) UI.compare.splice(i,1); else { if(UI.compare.length>=6){ toast('Up to 6 players'); return; } UI.compare.push(d.pick); }
+    render(); return; }
+  if(d.link){ var p=D.player[d.link]; showModal(p.name+' — personal link', linkFor(p)); return; }
+  if(d.reset){ if(!confirm('Give '+D.player[d.reset].name+' a new link? Their old link will stop working.')) return; admin('resetToken',{id:d.reset}); return; }
+  if(d.remove){ if(!confirm('Remove '+D.player[d.remove].name+' and all their tips?')) return; admin('removePlayer',{id:d.remove}); return; }
+  if(d.act) actions[d.act] && actions[d.act](t);
+});
+document.addEventListener('change',function(e){
+  var el=e.target;
+  if(el.classList.contains('pick')){ UI.draft[el.dataset.race]=el.value; var b=document.getElementById('savebar'); if(b) b.remove(); renderSaveBar(); }
+  if(el.id==='dSel'){ UI.adminDay=el.value; render(); }
+});
+
+var actions={
+  saveTips:function(btn){
+    var picks=Object.keys(UI.draft).map(function(k){return {raceId:k,horseNo:UI.draft[k]};});
+    btn.disabled=true; btn.textContent='Saving…';
+    api('api_saveTips',TOKEN,picks).then(function(st){
+      UI.draft={}; load(st);
+      toast(st.saveErrors && st.saveErrors.length ? ('Saved, but: '+st.saveErrors.join('; ')) : 'Tips saved ✓');
+    }).catch(function(e){ fail(e); render(); });
+  },
+  saveDay:function(){
+    var p={id:UI.adminDay||'',name:val('dName').trim(),date:val('dDate'),order:val('dOrder'),paste:val('dPaste')};
+    if(!p.name||!p.date){ toast('Name and date needed'); return; }
+    admin('saveDay',p,function(st){ if(!UI.adminDay){ var nd=st.days.find(function(d){return d.name===p.name&&d.date===p.date;}); if(nd) UI.adminDay=nd.id; } UI.dayId=UI.adminDay||UI.dayId; });
+  },
+  deleteDay:function(){ if(!confirm('Delete this day, its races, tips and results?')) return; var id=UI.adminDay; UI.adminDay=''; admin('deleteDay',{id:id}); },
+  addPlayers:function(){ var tx=val('pAdd'); if(!tx.trim()) return; admin('addPlayers',{text:tx}); },
+  allLinks:function(){ showModal('Player links', S.players.map(function(p){return p.name+(p.email?' <'+p.email+'>':'')+'\n'+linkFor(p);}).join('\n\n')); },
+  saveCfg:function(){ admin('setConfig',{TITLE:val('cTitle'),RESULTS_URL:val('cUrl')}); },
+  fetchNow:function(){ admin('fetchNow',{}); },
+  addRow:function(){ UI.extraRows=UI.extraRows||{}; UI.extraRows[UI.adminRace]=(UI.extraRows[UI.adminRace]||0)+1; render(); },
+  saveResult:function(){
+    var f=document.getElementById('resForm');
+    var placings=[].map.call(f.querySelectorAll('.plc'),function(row){
+      var no=row.querySelector('.pNo'); if(!no) return null;
+      return {pos:row.querySelector('.pPos').value,no:no.value,win:row.querySelector('.pWin').value,place:row.querySelector('.pPlace').value};
+    }).filter(function(x){return x && x.no;});
+    var scr=[].map.call(f.querySelectorAll('.scrck:checked'),function(c){return c.value;});
+    var fav=val('rFav');
+    if(scr.length && !fav && placings.length){ if(!confirm('Scratchings are marked but no favourite is set — tips on scratched horses will score $0. Save anyway?')) return; }
+    if(UI.extraRows) delete UI.extraRows[f.dataset.race];
+    admin('saveResult',{raceId:f.dataset.race,placings:placings,scratched:scr,favourite:fav,status:document.getElementById('rInterim').checked?'interim':'final'});
+  },
+  clearResult:function(){ if(!confirm('Clear this result and scratchings?')) return; admin('clearResult',{raceId:UI.adminRace}); }
+};
+function val(id){ var el=document.getElementById(id); return el?el.value:''; }
+function admin(action,payload,after){
+  toast('Saving…');
+  api('api_admin',ADMIN,action,payload).then(function(st){ if(after) after(st); load(st); toast('Saved ✓'); }).catch(fail);
+}
+
+/* ============ Boot ============ */
+function busy(){ var a=document.activeElement; return !!document.querySelector('.modal') || (a && /SELECT|INPUT|TEXTAREA/.test(a.tagName)); }
+function load(st){
+  S=st; derive();
+  if(!UI.dayId || !D.day[UI.dayId]) UI.dayId=defaultDay();
+  render();
+}
+function refresh(){ return api('api_getState',TOKEN,ADMIN).then(load).catch(fail); }
+
+getParams().then(function(p){
+  P=p;
+  TOKEN = p.t || store('tip_token') || '';
+  ADMIN = p.admin || '';
+  if(p.t) store('tip_token',p.t);
+  return refresh();
+}).then(function(){
+  if(S && !S.me && TOKEN && !S.isAdmin) toast('That link isn\'t recognised — ask the organiser for yours.');
+  setInterval(function(){ if(document.visibilityState==='visible' && !busy() && UI.tab!=='admin') refresh(); }, 60000);
+  setInterval(function(){ if(UI.tab==='tips' && !busy()) render(); }, 30000);
+});
+</script>
+</body>
+</html>
