@@ -341,6 +341,32 @@ code{font-size:11.5px;background:#F2F6E6;padding:1px 4px;border-radius:5px}
 .mright{flex:0 0 auto}
 .mgo{font-weight:900;color:var(--leaf);font-size:14px}
 .mr.need .mgo{color:#B8305E}
+
+/* ---------- Charts ---------- */
+.ccard{padding:16px 16px 10px}
+.ccard h3{font-size:17px}
+.csub{margin:2px 0 8px}
+.chart{position:relative;margin:4px -4px 0;touch-action:pan-y}
+.csvg{display:block;overflow:visible;font-family:inherit}
+.csvg .grid{stroke:#E8EEDA;stroke-width:1}
+.csvg .ax{font-size:11px;fill:var(--muted);font-weight:700}
+.csvg .oth{fill:none;stroke:#C9D1BE;stroke-width:1}
+.csvg .elab{font-size:12px;font-weight:800;fill:var(--ink)}
+.csvg .vlab{font-size:11px;font-weight:800;fill:var(--ink)}
+.csvg .lead{stroke:#9AA58E;stroke-width:1;fill:none}
+.csvg .xhair{stroke:#9AA58E;stroke-width:1}
+.lgd{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.lgd span{display:inline-flex;align-items:center;gap:6px}
+.lgd i{display:inline-block;width:14px;height:3px;border-radius:2px}
+.tt{display:none;position:absolute;z-index:5;pointer-events:none;background:#fff;color:var(--ink);border-radius:12px;padding:8px 10px;font-size:12px;
+  box-shadow:0 8px 24px -8px rgba(21,54,31,.35);min-width:150px;max-width:240px}
+.tt b{display:block;margin-bottom:4px;font-size:12px}
+.tt div{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.tt div span{margin-left:auto;padding-left:10px;font-weight:800}
+.tt i{display:inline-block;width:10px;height:3px;border-radius:2px}
+.ctab{margin-top:6px}
+.ctab summary{font-size:12px;font-weight:800;color:var(--leaf);cursor:pointer;padding:4px 0}
+.ctab .tbl-wrap{box-shadow:none;border:1px solid var(--line);margin:6px 0 4px}
 </style>
 </head>
 <body>
@@ -498,8 +524,8 @@ var TABS=[['mine','My tips'],['tips','Races'],['grid','Scoreboard'],['board','La
 function renderShell(){
   document.getElementById('title').textContent=S.title;
   document.title=S.title;
-  document.getElementById('who').textContent = S.me ? ('Tipping as '+S.me.name) : (S.isAdmin ? 'Admin' : 'Viewing only — use your personal link to tip');
-  var tabs=TABS.slice(); if(!S.me) tabs.shift(); if(S.isAdmin) tabs.push(['admin','Admin']);
+  document.getElementById('who').textContent = S.me ? ('Tipping as '+S.me.name+(S.isAdmin?' · Admin':'')) : (S.isAdmin ? 'Admin' : 'Viewing only. Use your personal link to tip.');
+  var tabs=TABS.slice(); if(S.isAdmin) tabs.push(['admin','Admin']);
   var nav=document.getElementById('tabs');
   nav.innerHTML=tabs.map(function(t){
     return '<button data-tab="'+t[0]+'" class="'+(UI.tab===t[0]?'on':'')+'">'+t[1]+'</button>'; }).join('');
@@ -508,9 +534,8 @@ function renderShell(){
 function render(){
   renderShell();
   var v=document.getElementById('view');
-  if(!UI.tab) UI.tab = S.me ? 'mine' : 'tips';
+  if(!UI.tab) UI.tab = (S.me || S.isAdmin) ? 'mine' : 'tips';
   if(UI.tab==='races') UI.tab='tips';
-  if(UI.tab==='mine' && !S.me) UI.tab='tips';
   var fn={mine:vMine,tips:vTips,grid:vGrid,board:vBoard,compare:vCompare,races:vRaces,stats:vStats,admin:vAdmin}[UI.tab]||vTips;
   v.innerHTML = fn();
   renderSaveBar();
@@ -600,6 +625,12 @@ function formPills(f){
 
 /* ---------- My tips: your whole day at a glance ---------- */
 function vMine(){
+  if(!S.me){
+    if(S.isAdmin) return '<div class="card"><h3>Tip as a player</h3><div class="muted" style="margin:4px 0 10px">Your admin link doesn\'t know which player you are. Choose yourself to see and enter your tips. Your admin tools stay available.</div>'+
+      '<select id="asPlayer" style="width:100%"><option value="">Choose a player…</option>'+S.players.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>';}).join('')+'</select>'+
+      (S.players.length?'':'<div class="muted" style="margin-top:8px">Add players on the Admin tab first.</div>')+'</div>';
+    return '<div class="card"><h3>Open your personal link</h3><div class="muted" style="margin-top:4px">My tips shows your own tips, so it needs the personal link the organiser sent you. You can still browse Races, the Scoreboard and the Ladder.</div></div>';
+  }
   if(!S.days.length) return noDays();
   var races=D.byDay[UI.dayId]||[];
   var out=dayChips();
@@ -911,6 +942,170 @@ function vRaces(){
 }
 
 /* ============ Stats ============ */
+/* ============ Charts (plain SVG, no libraries) ============ */
+// Validated categorical order (blue, orange, aqua, yellow). "You" always takes slot 1.
+var SERIES=['#2a78d6','#eb6834','#1baf7a','#eda100'];
+var CH={}, chN=0;
+function chartW(){ var m=document.getElementById('view'); var w=(m?m.clientWidth:360)-28-32+8; return Math.max(260,Math.min(852,w)); }
+function niceMax(v){ if(v<=0) return 4; var s=v/4, p=Math.pow(10,Math.floor(Math.log10(s))), f=s/p; var n=f<=1?1:f<=2?2:f<=5?5:10; return Math.max(1,n*p)*4; }
+function ticks(max){ var out=[]; for(var i=0;i<=4;i++) out.push(max*i/4); return out; }
+function fmtTick(v){ return '$'+(v>=100?Math.round(v):(Math.round(v*10)/10)); }
+function legend(items){ return '<div class="lgd">'+items.map(function(i){ return '<span><i style="background:'+i.color+(i.dot?';border-radius:50%;width:10px;height:10px':'')+'"></i>'+esc(i.name)+'</span>'; }).join('')+'</div>'; }
+function tableView(head,rows){ return '<details class="ctab"><summary>Show as table</summary><div class="tbl-wrap"><table><thead><tr>'+head.map(function(x,i){return '<th'+(i?' class="num"':'')+'>'+esc(x)+'</th>';}).join('')+'</tr></thead><tbody>'+
+  rows.map(function(r){ return '<tr>'+r.map(function(x,i){return '<td'+(i?' class="num"':'')+'>'+esc(x)+'</td>';}).join('')+'</tr>'; }).join('')+'</tbody></table></div></details>'; }
+
+// Line chart: running totals
+function lineChart(o){
+  var id='c'+(chN++), W=chartW(), H=250, m={l:46,r:78,t:14,b:30}, iw=W-m.l-m.r, ih=H-m.t-m.b, n=o.labels.length;
+  var all=o.series.concat(o.others||[]), max=niceMax(Math.max.apply(null,all.map(function(s){return Math.max.apply(null,s.vals.concat([0]));})));
+  var X=function(i){ return m.l+(n<=1?iw/2:iw*i/(n-1)); }, Y=function(v){ return m.t+ih-ih*v/max; };
+  var s='<svg width="'+W+'" height="'+H+'" class="csvg">';
+  ticks(max).forEach(function(t){ s+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+Y(t)+'" y2="'+Y(t)+'" class="grid"/><text x="'+(m.l-8)+'" y="'+(Y(t)+4)+'" class="ax" text-anchor="end">'+fmtTick(t)+'</text>'; });
+  // x labels: group markers (e.g. day starts) or thinned race labels
+  var step=Math.max(1,Math.ceil(n/(iw/46)));
+  o.labels.forEach(function(l,i){ var g=o.groups?o.groups[i]:null;
+    if(g){ s+='<line x1="'+X(i)+'" x2="'+X(i)+'" y1="'+m.t+'" y2="'+(m.t+ih)+'" class="grid"/><text x="'+(X(i)+3)+'" y="'+(H-10)+'" class="ax">'+esc(g)+'</text>'; }
+    else if(!o.groups && i%step===0){ s+='<text x="'+X(i)+'" y="'+(H-10)+'" class="ax" text-anchor="middle">'+esc(l)+'</text>'; } });
+  var path=function(v){ return v.map(function(y,i){ return (i?'L':'M')+X(i).toFixed(1)+' '+Y(y).toFixed(1); }).join(''); };
+  (o.others||[]).forEach(function(sr){ s+='<path d="'+path(sr.vals)+'" class="oth"/>'; });
+  o.series.slice().reverse().forEach(function(sr){ s+='<path d="'+path(sr.vals)+'" fill="none" stroke="'+sr.color+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'; });
+  // end dots + labels with leader lines when they would collide
+  var ends=o.series.map(function(sr){ var v=sr.vals[n-1]||0; return {sr:sr,y:Y(v),ly:Y(v)}; }).sort(function(a,b){return a.y-b.y;});
+  for(var i=1;i<ends.length;i++) if(ends[i].ly-ends[i-1].ly<14) ends[i].ly=ends[i-1].ly+14;
+  var over=ends.length?ends[ends.length-1].ly-(m.t+ih):0; if(over>0) ends.forEach(function(e){ e.ly-=over; });
+  ends.forEach(function(e){ var x=X(n-1);
+    s+='<circle cx="'+x+'" cy="'+e.y+'" r="4.5" fill="'+e.sr.color+'" stroke="#fff" stroke-width="2"/>';
+    if(Math.abs(e.ly-e.y)>2) s+='<path d="M'+(x+6)+' '+e.y+'L'+(x+12)+' '+e.ly+'" class="lead"/>';
+    s+='<text x="'+(x+14)+'" y="'+(e.ly+4)+'" class="elab">'+esc(e.sr.short||e.sr.name)+'</text>'; });
+  s+='<line id="'+id+'x" class="xhair" y1="'+m.t+'" y2="'+(m.t+ih)+'" x1="-9" x2="-9"/>';
+  s+='<rect x="'+m.l+'" y="'+m.t+'" width="'+iw+'" height="'+ih+'" fill="transparent" class="hit" data-chart="'+id+'"/></svg>';
+  CH[id]={type:'line',o:o,X:X,Y:Y,m:m,iw:iw,n:n};
+  return '<div class="chart" id="'+id+'">'+s+'<div class="tt" id="'+id+'t"></div></div>';
+}
+// Column chart (optional "you" dot on the same $ axis)
+function colChart(o){
+  var id='c'+(chN++), W=chartW(), H=230, m={l:46,r:12,t:22,b:34}, iw=W-m.l-m.r, ih=H-m.t-m.b, n=o.items.length;
+  var max=niceMax(Math.max.apply(null,o.items.map(function(it){ return Math.max(it.value||0,it.dot||0); }).concat([o.fixedMax||0])));
+  if(o.fixedMax) max=o.fixedMax;
+  var band=iw/n, bw=Math.min(24,band*0.6), Y=function(v){ return m.t+ih-ih*v/max; }, base=m.t+ih;
+  var s='<svg width="'+W+'" height="'+H+'" class="csvg">';
+  ticks(max).forEach(function(t){ s+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+Y(t)+'" y2="'+Y(t)+'" class="grid"/><text x="'+(m.l-8)+'" y="'+(Y(t)+4)+'" class="ax" text-anchor="end">'+(o.fmt||fmtTick)(t)+'</text>'; });
+  var top=o.items.reduce(function(a,it,i){ return it.value>(o.items[a].value||0)?i:a; },0);
+  o.items.forEach(function(it,i){ var cx=m.l+band*i+band/2, y=Y(it.value||0), hgt=base-y, r=Math.min(4,hgt);
+    if(hgt>0) s+='<path d="M'+(cx-bw/2)+' '+base+'V'+(y+r)+'Q'+(cx-bw/2)+' '+y+' '+(cx-bw/2+r)+' '+y+'H'+(cx+bw/2-r)+'Q'+(cx+bw/2)+' '+y+' '+(cx+bw/2)+' '+(y+r)+'V'+base+'Z" fill="'+(o.color||SERIES[0])+'"/>';
+    if(band>=44 || i===top) s+='<text x="'+cx+'" y="'+(y-6)+'" class="vlab" text-anchor="middle">'+(o.fmt||money)(it.value||0)+'</text>';
+    if(it.dot!=null) s+='<circle cx="'+cx+'" cy="'+Y(it.dot)+'" r="5" fill="'+o.dotColor+'" stroke="#fff" stroke-width="2"/>';
+    s+='<text x="'+cx+'" y="'+(H-14)+'" class="ax" text-anchor="middle">'+esc(it.label)+'</text>';
+    s+='<rect x="'+(m.l+band*i)+'" y="'+m.t+'" width="'+band+'" height="'+ih+'" fill="transparent" class="hit" data-chart="'+id+'" data-i="'+i+'"/>'; });
+  s+='</svg>';
+  CH[id]={type:'col',o:o,band:band,m:m,Y:Y};
+  return '<div class="chart" id="'+id+'">'+s+'<div class="tt" id="'+id+'t"></div></div>';
+}
+// Scatter: strike rate vs average collect
+function scatter(o){
+  var id='c'+(chN++), W=chartW(), H=250, m={l:46,r:16,t:14,b:38}, iw=W-m.l-m.r, ih=H-m.t-m.b;
+  var ymax=niceMax(Math.max.apply(null,o.pts.map(function(p){return p.y;}).concat([1])));
+  var xs=o.pts.map(function(p){return p.x;}), x0=Math.max(0,Math.floor((Math.min.apply(null,xs)-5)/10)*10), x1=Math.min(100,Math.ceil((Math.max.apply(null,xs)+5)/10)*10);
+  if(x1-x0<30){ x0=Math.max(0,x0-10); x1=Math.min(100,x0+40); }
+  var X=function(v){ return m.l+iw*(v-x0)/(x1-x0); }, Y=function(v){ return m.t+ih-ih*v/ymax; };
+  var s='<svg width="'+W+'" height="'+H+'" class="csvg">';
+  ticks(ymax).forEach(function(t){ s+='<line x1="'+m.l+'" x2="'+(W-m.r)+'" y1="'+Y(t)+'" y2="'+Y(t)+'" class="grid"/><text x="'+(m.l-8)+'" y="'+(Y(t)+4)+'" class="ax" text-anchor="end">'+fmtTick(t)+'</text>'; });
+  var xst=(x1-x0)>50?20:10; for(var t=x0;t<=x1;t+=xst){ s+='<line x1="'+X(t)+'" x2="'+X(t)+'" y1="'+m.t+'" y2="'+(m.t+ih)+'" class="grid"/><text x="'+X(t)+'" y="'+(m.t+ih+16)+'" class="ax" text-anchor="middle">'+t+'%</text>'; }
+  s+='<text x="'+(m.l+iw/2)+'" y="'+(H-4)+'" class="ax" text-anchor="middle">Strike rate (tips that paid) →</text>';
+  var pts=o.pts.slice().sort(function(a,b){ return (a.color?1:0)-(b.color?1:0); });
+  pts.forEach(function(p){ s+='<circle cx="'+X(p.x)+'" cy="'+Y(p.y)+'" r="'+(p.color?6:5)+'" fill="'+(p.color||'#B7C2A8')+'" stroke="#fff" stroke-width="2"/>'; });
+  // place each label beside its dot, trying right, left, above, below, and skip spots that overlap a placed label or a dot
+  var placed=[], dots=o.pts.map(function(p){ return {x:X(p.x),y:Y(p.y)}; });
+  var hitsBox=function(b){ return placed.some(function(q){ return b.x<q.x+q.w && b.x+b.w>q.x && b.y<q.y+q.h && b.y+b.h>q.y; }) ||
+    dots.some(function(d){ return d.x>b.x-3 && d.x<b.x+b.w+3 && d.y>b.y-3 && d.y<b.y+b.h+3; }) || b.x<m.l || b.x+b.w>W-2 || b.y<0; };
+  o.pts.filter(function(p){return p.label;}).sort(function(a,b){ return (b.color?1:0)-(a.color?1:0); }).forEach(function(p){
+    var cx=X(p.x), cy=Y(p.y), w=p.label.length*7+2, hh=14;
+    var opts=[{x:cx+9,y:cy-7,a:'start'},{x:cx-9-w,y:cy-7,a:'end'},{x:cx-w/2,y:cy-24,a:'middle'},{x:cx-w/2,y:cy+10,a:'middle'}];
+    var pick=null; for(var k=0;k<opts.length;k++){ var bx={x:opts[k].x,y:opts[k].y,w:w,h:hh}; if(!hitsBox(bx)){ pick=opts[k]; break; } }
+    if(!pick) return;   // no room: the tooltip and table still carry it
+    placed.push({x:pick.x,y:pick.y,w:w,h:hh});
+    var tx=pick.a==='start'?pick.x:pick.a==='end'?pick.x+w:pick.x+w/2;
+    s+='<text x="'+tx+'" y="'+(pick.y+11)+'" class="elab" text-anchor="'+pick.a+'">'+esc(p.label)+'</text>'; });
+  pts.forEach(function(p,i){ s+='<circle cx="'+X(p.x)+'" cy="'+Y(p.y)+'" r="13" fill="transparent" class="hit" data-chart="'+id+'" data-i="'+o.pts.indexOf(p)+'"/>'; });
+  s+='</svg>';
+  CH[id]={type:'dot',o:o,X:X,Y:Y};
+  return '<div class="chart" id="'+id+'">'+s+'<div class="tt" id="'+id+'t"></div></div>';
+}
+function showTip(e){
+  var t=e.target; if(!t.dataset || !t.dataset.chart) return;
+  var c=CH[t.dataset.chart]; if(!c) return;
+  var box=document.getElementById(t.dataset.chart), tt=document.getElementById(t.dataset.chart+'t'), rb=box.getBoundingClientRect();
+  var px=(e.clientX||0)-rb.left, py=(e.clientY||0)-rb.top, html='', ax=px, ay=py;
+  if(c.type==='line'){
+    var i=Math.round((px-c.m.l)/(c.iw/Math.max(1,c.n-1))); i=Math.max(0,Math.min(c.n-1,i));
+    var xl=document.getElementById(t.dataset.chart+'x'); xl.setAttribute('x1',c.X(i)); xl.setAttribute('x2',c.X(i));
+    html='<b>'+esc(c.o.full[i])+'</b>'+c.o.series.slice().sort(function(a,b){return b.vals[i]-a.vals[i];}).map(function(sr){ return '<div><i style="background:'+sr.color+'"></i>'+esc(sr.name)+'<span>'+money(sr.vals[i])+'</span></div>'; }).join('');
+    ax=c.X(i);
+  } else if(c.type==='col'){
+    var it=c.o.items[+t.dataset.i]; html=c.o.tip(it); ax=c.m.l+c.band*(+t.dataset.i)+c.band/2;
+  } else {
+    var p=c.o.pts[+t.dataset.i]; html=c.o.tip(p); ax=c.X(p.x); ay=c.Y(p.y);
+  }
+  tt.innerHTML=html; tt.style.display='block';
+  var w=tt.offsetWidth, bw=box.clientWidth; var left=ax+12; if(left+w>bw-4) left=ax-w-12; if(left<4) left=4;
+  tt.style.left=left+'px'; tt.style.top=Math.max(4,Math.min(ay-10,box.clientHeight-tt.offsetHeight-4))+'px';
+}
+function hideTip(e){ var t=e.target; if(!t.dataset || !t.dataset.chart) return; var tt=document.getElementById(t.dataset.chart+'t'); if(tt) tt.style.display='none';
+  var xl=document.getElementById(t.dataset.chart+'x'); if(xl){ xl.setAttribute('x1',-9); xl.setAttribute('x2',-9); } }
+document.addEventListener('pointermove',showTip);
+document.addEventListener('pointerdown',showTip);
+document.addEventListener('pointerout',hideTip);
+var rsT=null; window.addEventListener('resize',function(){ clearTimeout(rsT); rsT=setTimeout(function(){ if(UI.tab==='stats') render(); },200); });
+
+function statCharts(races){
+  // races in running order
+  var dayIdx={}; S.days.forEach(function(d,i){ dayIdx[d.id]=i; });
+  races=races.slice().sort(function(a,b){ return (dayIdx[a.dayId]-dayIdx[b.dayId]) || (a.raceNo-b.raceNo); });
+  var carnival=UI.statMode!=='day', out='';
+  var cum={}; S.players.forEach(function(p){ cum[p.id]=[]; var run=0; races.forEach(function(r){ run+=points(p.id,r.id)||0; cum[p.id].push(Math.round(run*100)/100); }); });
+  var fin=S.players.map(function(p){ return {p:p,t:cum[p.id][races.length-1]||0}; }).sort(function(a,b){return b.t-a.t;});
+  var chosen=[]; if(S.me) chosen.push(S.me.id);
+  fin.forEach(function(x){ if(chosen.length<4 && chosen.indexOf(x.p.id)<0) chosen.push(x.p.id); });
+  var series=chosen.map(function(pid,i){ var nm=D.player[pid].name; return {name:(S.me&&pid===S.me.id?'You':nm), short:(S.me&&pid===S.me.id?'You':nm.split(' ')[0]), color:SERIES[i], vals:cum[pid]}; });
+  var others=S.players.filter(function(p){return chosen.indexOf(p.id)<0;}).map(function(p){ return {name:p.name,vals:cum[p.id]}; });
+  var groups=null; if(carnival){ var seen={}; groups=races.map(function(r){ if(seen[r.dayId]) return null; seen[r.dayId]=1; var nm=(D.day[r.dayId]||{}).name||''; return nm.replace(/\s*\(demo\)/,'').replace(/ Day$/,'').split(' ')[0]; }); }
+  out+='<div class="card ccard"><h3>'+(carnival?'The race for the carnival':'How the day unfolded')+'</h3><div class="muted csub">Running total after each race'+(S.me?', you and the top 3':', top 4')+'. Everyone else is in grey.</div>'+
+    legend(series.concat(others.length?[{name:'Everyone else',color:'#C9D1BE'}]:[]))+
+    lineChart({labels:races.map(function(r){return 'R'+r.raceNo;}), full:races.map(function(r){ return ((D.day[r.dayId]||{}).name||'')+' · R'+r.raceNo; }), groups:groups, series:series, others:others})+
+    tableView(['Player','Total'],fin.map(function(x){ return [x.p.name,money(x.t)]; }))+'</div>';
+
+  if(carnival){
+    var items=S.days.filter(function(d){ return (D.byDay[d.id]||[]).some(function(r){return hasResult(r.id);}); }).map(function(d){
+      var best=null; S.players.forEach(function(p){ var t=dayTotal(p.id,d.id); if(!best||t>best.t) best={p:p,t:t}; });
+      return {label:d.name.replace(/\s*\(demo\)/,'').replace(/ Day$/,'').split(' ')[0], full:d.name, value:best?best.t:0, who:best?best.p.name:'', dot:S.me?dayTotal(S.me.id,d.id):null};
+    });
+    out+='<div class="card ccard"><h3>Winning score each day</h3><div class="muted csub">The day winner\'s total'+(S.me?', with your score as a dot':'')+'.</div>'+
+      (S.me?legend([{name:'Day winner',color:SERIES[0]},{name:'You',color:'#15361F',dot:true}]):'')+
+      colChart({items:items,dotColor:'#15361F',tip:function(it){ return '<b>'+esc(it.full)+'</b><div>Winner: '+esc(it.who)+'<span>'+money(it.value)+'</span></div>'+(it.dot!=null?'<div>You<span>'+money(it.dot)+'</span></div>':''); }})+
+      tableView(['Day','Winner','Winning score'].concat(S.me?['You']:[]),items.map(function(it){ return [it.full,it.who,money(it.value)].concat(S.me?[money(it.dot)]:[]); }))+'</div>';
+  } else {
+    var nT=function(r){ return S.players.filter(function(p){ return (D.tip[p.id]||{})[r.id]; }).length; };
+    var items2=races.map(function(r){ var n=nT(r), hit=S.players.filter(function(p){ return (points(p.id,r.id)||0)>0; }).length;
+      var w=D.res[r.id].placings.filter(function(x){return x.pos===1;})[0];
+      return {label:'R'+r.raceNo, full:'R'+r.raceNo+' · '+r.name, value:n?Math.round(hit/n*100):0, hit:hit, n:n, w:w?('#'+w.no+' '+horseName(r,w.no)+' '+money(w.win)):''}; });
+    var pct=function(v){ return Math.round(v)+'%'; };
+    out+='<div class="card ccard"><h3>Easy or tough?</h3><div class="muted csub">Share of tipsters who collected in each race. Low bars mean a roughie won.</div>'+
+      colChart({items:items2,fixedMax:100,fmt:pct,tip:function(it){ return '<b>'+esc(it.full)+'</b><div>Collected<span>'+it.hit+' of '+it.n+'</span></div><div>Winner<span>'+esc(it.w)+'</span></div>'; }})+
+      tableView(['Race','Collected','Winner'],items2.map(function(it){ return [it.full,it.hit+' of '+it.n+' ('+it.value+'%)',it.w]; }))+'</div>';
+  }
+  return out;
+}
+function scatterCard(rows){
+  var top=rows.slice().sort(function(a,b){return b.total-a.total;}).slice(0,3).map(function(x){return x.id;});
+  var pts=rows.filter(function(x){return x.tips>0;}).map(function(x){ var me=S.me&&x.id===S.me.id;
+    return {name:x.name,x:x.strike,y:x.avg,total:x.total,hits:x.hits,tips:x.tips,color:me?SERIES[0]:null,label:me?'You':(top.indexOf(x.id)>=0?x.name.split(' ')[0]:'')}; });
+  if(!pts.length) return '';
+  return '<div class="card ccard"><h3>Safe or roughie?</h3><div class="muted csub">Right means you collect often. Up means your collects pay well. Top-right is the sweet spot.</div>'+
+    (S.me?legend([{name:'You',color:SERIES[0],dot:true},{name:'Everyone else',color:'#B7C2A8',dot:true}]):'')+
+    scatter({pts:pts,tip:function(p){ return '<b>'+esc(p.name)+'</b><div>Strike rate<span>'+Math.round(p.x)+'% ('+p.hits+'/'+p.tips+')</span></div><div>Avg collect<span>'+money(p.y)+'</span></div><div>Total<span>'+money(p.total)+'</span></div>'; }})+
+    tableView(['Player','Strike %','Avg collect'],pts.map(function(p){ return [p.name,Math.round(p.x)+'%',money(p.y)]; }))+'</div>';
+}
+
 function vStats(){
   if(!S.days.length) return noDays();
   var out='<div class="seg"><button data-sm="carnival" class="'+(UI.statMode==='carnival'?'on':'')+'">Carnival</button><button data-sm="day" class="'+(UI.statMode==='day'?'on':'')+'">By day</button></div>';
@@ -934,6 +1129,7 @@ function vStats(){
     o.avg=o.hits?o.total/o.hits:0;
     return o;
   });
+  out+=statCharts(races)+scatterCard(rows);
   var k=UI.statSort;
   rows.sort(function(a,b){ return k==='name' ? a.name.localeCompare(b.name) : (b[k]-a[k]); });
   var cols=[['name','Player'],['total','Total'],['hits','Collects'],['wins','Winners'],['strike','Strike %'],['avg','Avg collect'],['best','Best']];
@@ -1084,6 +1280,7 @@ document.addEventListener('change',function(e){
   var el=e.target;
   if(el.classList.contains('pick')){ UI.draft[el.dataset.race]=el.value; var b=document.getElementById('savebar'); if(b) b.remove(); renderSaveBar(); }
   if(el.id==='dSel'){ UI.adminDay=el.value; render(); }
+  if(el.id==='asPlayer' && el.value){ var pl=S.players.find(function(p){return p.id===el.value;}); if(pl && pl.token){ TOKEN=pl.token; store('tip_token',TOKEN); refresh().then(function(){ toast('Tipping as '+pl.name); }); } }
 });
 
 var actions={
