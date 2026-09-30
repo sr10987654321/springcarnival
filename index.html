@@ -319,6 +319,28 @@ nav button{flex:1 1 auto;padding:10px 8px}
 .rnav{display:flex;justify-content:space-between;gap:10px;margin:14px 0 30px}
 .rnav .btn{padding:12px 22px;font-size:15px}
 code{font-size:11.5px;background:#F2F6E6;padding:1px 4px;border-radius:5px}
+
+/* ---------- My tips summary ---------- */
+.todo{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;cursor:pointer;font:inherit;
+  background:var(--pink);color:#fff;border-radius:16px;padding:12px 16px;margin-bottom:12px;box-shadow:0 8px 18px -10px rgba(255,126,168,.9)}
+.todo b{font-size:15px}.todo span{font-weight:900}
+.mylist{padding:4px 10px}
+.mr{display:flex;align-items:center;gap:12px;padding:12px 6px;border-bottom:1px solid #EEF4DC;cursor:pointer;border-radius:14px}
+.mr:last-child{border-bottom:0}
+.mr:hover{background:#FAFDF0}
+.mr.need{background:var(--pink-soft)}
+.mr.pl1{background:var(--butter-soft)}
+.mmain{flex:1;min-width:0}
+.mrace{font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrace .muted{font-size:12px}
+.mpick{display:flex;align-items:center;gap:4px;margin-top:3px;font-size:15px;min-width:0}
+.mpick b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mpick.none{color:#B8305E;font-weight:800;font-size:14px}
+.mr:not(.need) .mpick.none{color:var(--muted)}
+.msilk .silk{width:26px;height:29px;display:block;margin-right:2px}
+.mright{flex:0 0 auto}
+.mgo{font-weight:900;color:var(--leaf);font-size:14px}
+.mr.need .mgo{color:#B8305E}
 </style>
 </head>
 <body>
@@ -361,7 +383,7 @@ var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby0rrstoVuFzDhXOAJ2se_
 var S = null;               // server state
 var P = {};                 // url params
 var TOKEN = '', ADMIN = '';
-var UI = { tab:'tips', dayId:null, lbMode:'carnival', statMode:'carnival', statSort:'total', raceId:null,
+var UI = { tab:null, dayId:null, lbMode:'carnival', statMode:'carnival', statSort:'total', raceId:null,
            compare:[], draft:{}, adminRace:null, adminDay:'', pins:null, gridSort:'rank' };
 var D = {};                 // derived lookups
 
@@ -472,12 +494,12 @@ function defaultDay(){
 }
 
 /* ============ Shell ============ */
-var TABS=[['tips','My tips'],['grid','Scoreboard'],['board','Ladder'],['stats','Stats']];
+var TABS=[['mine','My tips'],['tips','Races'],['grid','Scoreboard'],['board','Ladder'],['stats','Stats']];
 function renderShell(){
   document.getElementById('title').textContent=S.title;
   document.title=S.title;
   document.getElementById('who').textContent = S.me ? ('Tipping as '+S.me.name) : (S.isAdmin ? 'Admin' : 'Viewing only — use your personal link to tip');
-  var tabs=TABS.slice(); if(!S.me) tabs[0]=['tips','Races']; if(S.isAdmin) tabs.push(['admin','Admin']);
+  var tabs=TABS.slice(); if(!S.me) tabs.shift(); if(S.isAdmin) tabs.push(['admin','Admin']);
   var nav=document.getElementById('tabs');
   nav.innerHTML=tabs.map(function(t){
     return '<button data-tab="'+t[0]+'" class="'+(UI.tab===t[0]?'on':'')+'">'+t[1]+'</button>'; }).join('');
@@ -486,8 +508,10 @@ function renderShell(){
 function render(){
   renderShell();
   var v=document.getElementById('view');
+  if(!UI.tab) UI.tab = S.me ? 'mine' : 'tips';
   if(UI.tab==='races') UI.tab='tips';
-  var fn={tips:vTips,grid:vGrid,board:vBoard,compare:vCompare,races:vRaces,stats:vStats,admin:vAdmin}[UI.tab]||vTips;
+  if(UI.tab==='mine' && !S.me) UI.tab='tips';
+  var fn={mine:vMine,tips:vTips,grid:vGrid,board:vBoard,compare:vCompare,races:vRaces,stats:vStats,admin:vAdmin}[UI.tab]||vTips;
   v.innerHTML = fn();
   renderSaveBar();
 }
@@ -574,6 +598,45 @@ function formPills(f){
   }).join('')+'</span>';
 }
 
+/* ---------- My tips: your whole day at a glance ---------- */
+function vMine(){
+  if(!S.days.length) return noDays();
+  var races=D.byDay[UI.dayId]||[];
+  var out=dayChips();
+  if(S.me){
+    var dayRows=ranked(S.players.map(function(p){return {id:p.id,name:p.name,t:dayTotal(p.id,UI.dayId)};}),'t');
+    var carRows=ranked(S.players.map(function(p){return {id:p.id,name:p.name,t:carnivalTotal(p.id)};}),'t');
+    var dm=dayRows.find(function(x){return x.id===S.me.id;}), cm=carRows.find(function(x){return x.id===S.me.id;});
+    var picked=races.filter(function(r){ return curPick(r); }).length;
+    out+='<div class="hero sm">'+
+      '<div class="stat s-pink"><div class="lbl">This day</div><div class="big">'+money(dm.t)+'</div><div class="sub">'+ordinal(dm.rank)+' of '+dayRows.length+'</div></div>'+
+      '<div class="stat s-lilac"><div class="lbl">Carnival</div><div class="big">'+money(cm.t)+'</div><div class="sub">'+ordinal(cm.rank)+' of '+carRows.length+'</div></div>'+
+      '<div class="stat s-butter"><div class="lbl">Tipped</div><div class="big">'+picked+'/'+races.length+'</div><div class="sub">races</div></div></div>';
+  }
+  if(!races.length) return out+'<div class="empty">No fields yet. Check back after acceptances.</div>';
+  out+=lockBanner(UI.dayId);
+  var open=races.filter(function(r){ return !isLocked(r) && !curPick(r); });
+  if(open.length) out+='<button class="todo" data-gorace="'+esc(open[0].id)+'"><b>'+open.length+' race'+(open.length>1?'s':'')+' still to tip</b><span>Tip now →</span></button>';
+  out+='<div class="card mylist">'+races.map(function(r){
+    var p=curPick(r), locked=isLocked(r), h=p?(r.runners.find(function(x){return String(x.no)===p;})||{no:p,name:horseName(r,p)}):null;
+    var eff=effHorse(r.id,p), pl=(p&&hasResult(r.id))?placingOf(r.id,eff):null, pt=S.me?points(S.me.id,r.id):null;
+    var right;
+    if(pt!=null) right='<span class="'+(pt>0?'pts':'zero')+'">'+(pt>0?'+'+money(pt):'$0.00')+'</span>';
+    else if(started(r)) right='<span class="pill closed">Jumped</span>';
+    else if(locked) right='<span class="pill closed">🔒</span>';
+    else right='<span class="mgo">'+(p?'Change':'Pick')+' ›</span>';
+    return '<div class="mr'+(!p&&!locked?' need':'')+(pl?' pl'+pl.pos:'')+'" data-gorace="'+esc(r.id)+'" role="button" tabindex="0">'+
+      rno(r)+
+      '<div class="mmain"><div class="mrace">'+esc(r.name)+' <span class="muted">· '+fmtTime(r.start)+'</span></div>'+
+      (h ? '<div class="mpick">'+(h.s?'<span class="msilk">'+silksSVG(h.s)+'</span>':'')+cloth(h.no)+'<b>'+esc(h.name)+'</b>'+
+             (eff!==p?' <span class="muted">→ fav #'+esc(eff)+'</span>':'')+
+             (pl?' <span class="rpos p'+pl.pos+'">'+ordinal(pl.pos)+'</span>':'')+'</div>'
+         : '<div class="mpick none">'+(locked?'No tip':'Not tipped yet')+'</div>')+
+      '</div><div class="mright">'+right+'</div></div>';
+  }).join('')+'</div>';
+  return out;
+}
+
 /* ---------- My tips: one race at a time, tap a horse ---------- */
 function curPick(r){ if(!S.me) return ''; var d=UI.draft[r.id]; return d!=null ? String(d) : String((D.tip[S.me.id]||{})[r.id]||''); }
 function tipRaceFor(dayId){
@@ -588,16 +651,6 @@ function vTips(){
   if(!S.days.length) return noDays();
   var races=D.byDay[UI.dayId]||[];
   var out=dayChips();
-  if(S.me){
-    var dayRows=ranked(S.players.map(function(p){return {id:p.id,name:p.name,t:dayTotal(p.id,UI.dayId)};}),'t');
-    var carRows=ranked(S.players.map(function(p){return {id:p.id,name:p.name,t:carnivalTotal(p.id)};}),'t');
-    var dm=dayRows.find(function(x){return x.id===S.me.id;}), cm=carRows.find(function(x){return x.id===S.me.id;});
-    var picked=races.filter(function(r){ return curPick(r); }).length;
-    out+='<div class="hero sm">'+
-      '<div class="stat s-pink"><div class="lbl">This day</div><div class="big">'+money(dm.t)+'</div><div class="sub">'+ordinal(dm.rank)+' of '+dayRows.length+'</div></div>'+
-      '<div class="stat s-lilac"><div class="lbl">Carnival</div><div class="big">'+money(cm.t)+'</div><div class="sub">'+ordinal(cm.rank)+' of '+carRows.length+'</div></div>'+
-      '<div class="stat s-butter"><div class="lbl">Tipped</div><div class="big">'+picked+'/'+races.length+'</div><div class="sub">races</div></div></div>';
-  }
   if(!races.length) return out+'<div class="empty">No fields yet. Check back after acceptances.</div>';
   out+=lockBanner(UI.dayId);
   var rid=tipRaceFor(UI.dayId); UI.tipRace[UI.dayId]=rid;
@@ -999,10 +1052,11 @@ function linkFor(p){ return pageUrl() + '?t=' + p.token; }
 
 /* ============ Events ============ */
 document.addEventListener('click',function(e){
-  var t=e.target.closest('button,th,tr,[data-pickh]'); if(!t) return;
+  var t=e.target.closest('button,th,tr,[data-pickh],[data-gorace]'); if(!t) return;
   var d=t.dataset;
   if(d.pickh){ var rr=D.race[UI.tipRace[UI.dayId]]; if(!rr||isLocked(rr)) return;
     UI.draft[rr.id] = (curPick(rr)===d.pickh) ? '' : d.pickh; render(); scheduleSave(); return; }
+  if(d.gorace){ UI.tipRace=UI.tipRace||{}; UI.tipRace[UI.dayId]=d.gorace; UI.tab='tips'; render(); window.scrollTo(0,0); var rb=document.querySelector('.rbtns'); if(rb) rb.scrollIntoView({block:'start'}); return; }
   if(d.tipr){ UI.tipRace[UI.dayId]=d.tipr; render(); var rb=document.querySelector('.rbtns'); if(rb) rb.scrollIntoView({block:'start',behavior:'smooth'}); return; }
   if(d.tab){ UI.tab=d.tab; render(); window.scrollTo(0,0); return; }
   if(d.day){ UI.dayId=d.day; render(); return; }
@@ -1024,7 +1078,7 @@ document.addEventListener('click',function(e){
   if(d.act) actions[d.act] && actions[d.act](t);
 });
 document.addEventListener('keydown',function(e){
-  if((e.key==='Enter'||e.key===' ') && e.target.dataset && e.target.dataset.pickh){ e.preventDefault(); e.target.click(); }
+  if((e.key==='Enter'||e.key===' ') && e.target.dataset && (e.target.dataset.pickh||e.target.dataset.gorace)){ e.preventDefault(); e.target.click(); }
 });
 document.addEventListener('change',function(e){
   var el=e.target;
@@ -1094,7 +1148,7 @@ getParams().then(function(p){
 }).then(function(){
   if(S && !S.me && TOKEN && !S.isAdmin) toast('That link isn\'t recognised — ask the organiser for yours.');
   setInterval(function(){ if(document.visibilityState==='visible' && !busy() && UI.tab!=='admin') refresh(); }, 60000);
-  setInterval(function(){ if(UI.tab==='tips' && !busy()) render(); }, 30000);
+  setInterval(function(){ if((UI.tab==='tips'||UI.tab==='mine') && !busy()) render(); }, 30000);
 });
 </script>
 </body>
