@@ -283,6 +283,42 @@ nav button{flex:1 1 auto;padding:10px 8px}
 .lockban.shut .lnk{color:var(--pear)}
 .ds.locked{background:var(--ink);color:var(--pear)}
 .dayb.on .ds.locked{background:var(--pear);color:var(--ink)}
+
+.oldwarn{max-width:872px;margin:16px auto 0 !important;width:calc(100% - 28px);background:#FFE3E7;color:#8E1D2C;border-radius:16px;padding:12px 14px;margin-bottom:12px;font-size:13px;line-height:1.45}
+
+/* ---------- My tips: race picker ---------- */
+.hero.sm{gap:8px;margin-bottom:12px}.hero.sm .stat{padding:9px 6px;border-radius:16px}.hero.sm .big{font-size:19px}.hero.sm .lbl{font-size:10px}.hero.sm .sub{font-size:11px}
+.rbtns{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px;scroll-margin-top:80px}
+.rb{border:2px solid var(--line);background:var(--card);border-radius:14px;padding:6px 2px;font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;color:var(--ink)}
+.rb b{font-size:14px;font-weight:900}.rb span{font-size:11px;font-weight:800;color:var(--muted)}
+.rb.has{border-color:var(--pear-deep);background:var(--pear-soft)}.rb.has span{color:var(--ink)}
+.rb.on{background:var(--ink);border-color:var(--ink);color:#fff}.rb.on span{color:var(--pear)}
+.racehead{margin-bottom:10px}
+.pickl{padding:4px 10px}
+.rr{display:flex;gap:10px;align-items:center;padding:10px 6px;border-bottom:1px solid #EEF4DC;border-radius:14px;transition:background .12s}
+.rr:last-child{border-bottom:0}
+.rr.tap{cursor:pointer}.rr.tap:hover{background:#FAFDF0}.rr.tap:active{transform:scale(.99)}
+.rr.sel{background:var(--pear);border-bottom-color:transparent}
+.rr.sel .rmeta,.rr.sel .flbl{color:var(--ink)}
+.rr.is-scr{opacity:.45}
+.rr.pl1{background:var(--butter-soft)}
+.rsilk{flex:0 0 38px;height:42px;display:flex;align-items:center;justify-content:center}
+.rsilk .silk{width:38px;height:42px}
+.rr .rnum{flex:0 0 30px;height:34px;font-size:15px}
+.rmain{flex:1;min-width:0}
+.rbar{font-size:12px;font-weight:700;color:var(--muted)}
+.rmeta{font-size:12px;color:var(--muted);font-weight:600;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.form{display:inline-flex;align-items:center;gap:3px;margin-top:4px}
+.flbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-right:2px}
+.form i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;border-radius:5px;font-size:11px;font-weight:900}
+.form .f1{background:var(--ink);color:var(--pear)}.form .f23{background:var(--sky);color:var(--ink)}.form .fo{background:#EEF2E4;color:var(--muted)}.form .fx{background:transparent;color:var(--muted)}
+.rright{flex:0 0 auto;min-width:36px;text-align:center}
+.rright b{display:block;font-size:18px;font-weight:900;color:var(--leaf);line-height:1}.rright span{font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted)}
+.radio{display:inline-flex !important;width:28px;height:28px;border-radius:50%;border:2.5px solid var(--line);background:#fff;align-items:center;justify-content:center;font-size:15px !important;font-weight:900;color:var(--ink) !important}
+.rr.sel .radio{background:var(--ink);border-color:var(--ink);color:var(--pear) !important}
+.rnav{display:flex;justify-content:space-between;gap:10px;margin:14px 0 30px}
+.rnav .btn{padding:12px 22px;font-size:15px}
+code{font-size:11.5px;background:#F2F6E6;padding:1px 4px;border-radius:5px}
 </style>
 </head>
 <body>
@@ -436,12 +472,12 @@ function defaultDay(){
 }
 
 /* ============ Shell ============ */
-var TABS=[['tips','My tips'],['grid','Scoreboard'],['board','Ladder'],['races','Races'],['stats','Stats']];
+var TABS=[['tips','My tips'],['grid','Scoreboard'],['board','Ladder'],['stats','Stats']];
 function renderShell(){
   document.getElementById('title').textContent=S.title;
   document.title=S.title;
   document.getElementById('who').textContent = S.me ? ('Tipping as '+S.me.name) : (S.isAdmin ? 'Admin' : 'Viewing only — use your personal link to tip');
-  var tabs=TABS.slice(); if(S.isAdmin) tabs.push(['admin','Admin']);
+  var tabs=TABS.slice(); if(!S.me) tabs[0]=['tips','Races']; if(S.isAdmin) tabs.push(['admin','Admin']);
   var nav=document.getElementById('tabs');
   nav.innerHTML=tabs.map(function(t){
     return '<button data-tab="'+t[0]+'" class="'+(UI.tab===t[0]?'on':'')+'">'+t[1]+'</button>'; }).join('');
@@ -450,10 +486,10 @@ function renderShell(){
 function render(){
   renderShell();
   var v=document.getElementById('view');
+  if(UI.tab==='races') UI.tab='tips';
   var fn={tips:vTips,grid:vGrid,board:vBoard,compare:vCompare,races:vRaces,stats:vStats,admin:vAdmin}[UI.tab]||vTips;
   v.innerHTML = fn();
-  var bar=document.getElementById('savebar'); if(bar) bar.remove();
-  if(UI.tab==='tips' && S.me) renderSaveBar();
+  renderSaveBar();
 }
 function dayStatus(d){
   var rs=D.byDay[d.id]||[];
@@ -475,6 +511,79 @@ function dayChips(){
 function noDays(){ return '<div class="empty">No race days set up yet.</div>'; }
 
 /* ============ My tips ============ */
+/* ---------- Silks: draw racing colours from a description like "Royal Blue, White Hoops, Red Sleeves, Yellow Cap" ---------- */
+var SILK_COLS={'royal blue':'#2446B8','navy blue':'#1B2A55','navy':'#1B2A55','dark blue':'#1B2A55','light blue':'#8EC9EE','sky blue':'#8ED4F5','pale blue':'#BFE3F7','blue':'#2E6FD8',
+ 'emerald green':'#0F8A4B','dark green':'#15502C','lime green':'#9BD13B','lime':'#9BD13B','green':'#2E9E4F','black':'#1A1A1A','white':'#FFFFFF','red':'#D8262E','scarlet':'#E0301E','crimson':'#B3122E',
+ 'maroon':'#6E1426','cerise':'#DE3163','pink':'#F58BB7','hot pink':'#FF4F9A','purple':'#6A2C91','mauve':'#B784A7','violet':'#7B3FB0','lilac':'#C8A2C8','yellow':'#FFD91F','lemon':'#FFF36B',
+ 'gold':'#D4A017','orange':'#FF8A1F','tangerine':'#FF9933','brown':'#6B4226','beige':'#E6D3B3','fawn':'#D2B48C','grey':'#9AA0A6','gray':'#9AA0A6','silver':'#C0C6CC','aqua':'#35C6D6','turquoise':'#30C4C0'};
+var SILK_KEYS=Object.keys(SILK_COLS).sort(function(a,b){return b.length-a.length;});
+var PATS=['cross belts','crossbelts','armbands','armlets','epaulettes','quartered','quarters','diamonds','diamond','chevrons','chevron','checks','check','stripes','stripe','hoops','hoop','spots','spot','stars','star','sash','halved','band','seams','braces'];
+function silkCols(seg){ var s=seg.toLowerCase(), out=[]; var i=0;
+  while(i<s.length){ var hit=null; for(var k=0;k<SILK_KEYS.length;k++){ if(s.substr(i,SILK_KEYS[k].length)===SILK_KEYS[k]){ hit=SILK_KEYS[k]; break; } }
+    if(hit && (i===0||/\W/.test(s[i-1]))){ out.push(SILK_COLS[hit]); i+=hit.length; } else i++; }
+  return out; }
+function parseSilks(desc){
+  var o={base:'#fff',pat:null,pc:null,sleeves:null,sp:null,spc:null,cap:null};
+  String(desc||'').split(/[,;]/).forEach(function(seg,idx){
+    var s=seg.toLowerCase().trim(); if(!s) return; var cols=silkCols(s);
+    var pat=null; for(var k=0;k<PATS.length;k++){ if(s.indexOf(PATS[k])>=0){ pat=PATS[k]; break; } }
+    if(/sleeve/.test(s)){ o.sleeves=cols[0]||o.sleeves; if(pat){ o.sp=pat; o.spc=cols[1]||cols[0]; } return; }
+    if(/cap/.test(s)){ o.cap=cols[0]||o.cap; return; }
+    if(idx===0){ o.base=cols[0]||o.base; if(pat){ o.pat=pat; o.pc=cols[1]||cols[0]; } return; }
+    if(pat){ o.pat=pat; o.pc=cols[0]||o.pc; }
+  });
+  return o;
+}
+var silkN=0;
+function silksSVG(desc){
+  if(!desc) return '';
+  var o=parseSilks(desc), id='sk'+(silkN++), b=o.base, c=o.pc||'#fff', p=(o.pat||'').replace(/s$/,'');
+  var shirt='M25 12L33 8Q40 14 47 8L55 12L76 27L67 42L57 35L57 72L23 72L23 35L13 42L4 27Z';
+  var body='';
+  switch(p){
+    case 'hoop': for(var y=16;y<76;y+=14) body+='<rect x="0" y="'+y+'" width="80" height="7" fill="'+c+'"/>'; break;
+    case 'band': body='<rect x="0" y="40" width="80" height="12" fill="'+c+'"/>'; break;
+    case 'stripe': for(var x=26;x<58;x+=9) body+='<rect x="'+x+'" y="0" width="4.5" height="76" fill="'+c+'"/>'; break;
+    case 'diamond': body='<pattern id="'+id+'d" width="11" height="14" patternUnits="userSpaceOnUse"><path d="M5.5 0L11 7L5.5 14L0 7Z" fill="'+c+'"/></pattern><rect x="23" width="34" height="76" fill="url(#'+id+'d)"/>'; break;
+    case 'spot': body='<pattern id="'+id+'d" width="11" height="11" patternUnits="userSpaceOnUse"><circle cx="5.5" cy="5.5" r="2.6" fill="'+c+'"/></pattern><rect width="80" height="76" fill="url(#'+id+'d)"/>'; break;
+    case 'check': body='<pattern id="'+id+'d" width="16" height="16" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="'+c+'"/><rect x="8" y="8" width="8" height="8" fill="'+c+'"/></pattern><rect width="80" height="76" fill="url(#'+id+'d)"/>'; break;
+    case 'sash': body='<path d="M28 10L38 10L60 70L50 74Z" fill="'+c+'"/>'; break;
+    case 'cross belt': case 'crossbelt': body='<path d="M26 10L34 10L58 70L50 74Z M54 10L46 10L22 70L30 74Z" fill="'+c+'"/>'; break;
+    case 'chevron': for(var y2=24;y2<72;y2+=14) body+='<path d="M23 '+y2+'L40 '+(y2+10)+'L57 '+y2+'" stroke="'+c+'" stroke-width="5" fill="none"/>'; break;
+    case 'star': body=[[33,30],[47,40],[35,54],[48,64]].map(function(q){ return '<path transform="translate('+q[0]+' '+q[1]+') scale(.9)" d="M0-6L1.8-1.9L6.3-1.9L2.7 0.9L4 5.4L0 2.7L-4 5.4L-2.7 0.9L-6.3-1.9L-1.8-1.9Z" fill="'+c+'"/>'; }).join(''); break;
+    case 'quartered': case 'quarter': body='<rect x="40" y="0" width="40" height="40" fill="'+c+'"/><rect x="0" y="40" width="40" height="40" fill="'+c+'"/>'; break;
+    case 'halved': body='<rect x="40" y="0" width="40" height="76" fill="'+c+'"/>'; break;
+    case 'epaulette': body='<path d="M25 12L33 8L36 16L26 20Z M55 12L47 8L44 16L54 20Z" fill="'+c+'"/>'; break;
+    case 'brace': body='<rect x="29" y="0" width="5" height="76" fill="'+c+'"/><rect x="46" y="0" width="5" height="76" fill="'+c+'"/>'; break;
+    case 'seam': body='<rect x="38.5" y="0" width="3" height="76" fill="'+c+'"/>'; break;
+  }
+  var sl=o.sleeves||null, sleeves='';
+  if(sl) sleeves='<path d="M25 12L4 27L13 42L23 35Z M55 12L76 27L67 42L57 35Z" fill="'+sl+'"/>';
+  if(o.sp && /arm|hoop|band/.test(o.sp)) sleeves+='<path d="M9 23L18 38M14 19L22 32 M71 23L62 38M66 19L58 32" stroke="'+(o.spc||'#fff')+'" stroke-width="4"/>';
+  var cap=o.cap||b;
+  return '<svg class="silk" viewBox="0 -12 80 88" aria-hidden="true"><defs><clipPath id="'+id+'"><path d="'+shirt+'"/></clipPath></defs>'+
+    '<g clip-path="url(#'+id+')"><rect x="0" y="0" width="80" height="76" fill="'+b+'"/>'+body+sleeves+'</g>'+
+    '<path d="'+shirt+'" fill="none" stroke="#15361F" stroke-width="2.5" stroke-linejoin="round"/>'+
+    '<path d="M28 4Q40 -14 52 4Z" fill="'+cap+'" stroke="#15361F" stroke-width="2.5" stroke-linejoin="round"/><path d="M50 4L60 5" stroke="#15361F" stroke-width="3" stroke-linecap="round"/></svg>';
+}
+function formPills(f){
+  if(!f) return '';
+  return '<span class="form"><span class="flbl">Form</span>'+String(f).split('').map(function(ch){
+    var k= ch==='1'?'f1':(ch==='2'||ch==='3')?'f23':(ch.toLowerCase()==='x')?'fx':'fo';
+    return '<i class="'+k+'">'+esc(ch.toLowerCase()==='x'?'x':ch)+'</i>';
+  }).join('')+'</span>';
+}
+
+/* ---------- My tips: one race at a time, tap a horse ---------- */
+function curPick(r){ if(!S.me) return ''; var d=UI.draft[r.id]; return d!=null ? String(d) : String((D.tip[S.me.id]||{})[r.id]||''); }
+function tipRaceFor(dayId){
+  UI.tipRace=UI.tipRace||{};
+  var races=D.byDay[dayId]||[], cur=UI.tipRace[dayId];
+  if(cur && races.some(function(r){return r.id===cur;})) return cur;
+  var pick = (S.me && races.filter(function(r){ return !isLocked(r) && !curPick(r); })[0]) ||
+             races.filter(function(r){ return !hasResult(r.id); })[0] || races[0];
+  return pick ? pick.id : null;
+}
 function vTips(){
   if(!S.days.length) return noDays();
   var races=D.byDay[UI.dayId]||[];
@@ -483,38 +592,67 @@ function vTips(){
     var dayRows=ranked(S.players.map(function(p){return {id:p.id,name:p.name,t:dayTotal(p.id,UI.dayId)};}),'t');
     var carRows=ranked(S.players.map(function(p){return {id:p.id,name:p.name,t:carnivalTotal(p.id)};}),'t');
     var dm=dayRows.find(function(x){return x.id===S.me.id;}), cm=carRows.find(function(x){return x.id===S.me.id;});
-    var picked=races.filter(function(r){ return (UI.draft[r.id]!=null ? UI.draft[r.id] : (D.tip[S.me.id]||{})[r.id]); }).length;
-    out+='<div class="hero">'+
+    var picked=races.filter(function(r){ return curPick(r); }).length;
+    out+='<div class="hero sm">'+
       '<div class="stat s-pink"><div class="lbl">This day</div><div class="big">'+money(dm.t)+'</div><div class="sub">'+ordinal(dm.rank)+' of '+dayRows.length+'</div></div>'+
       '<div class="stat s-lilac"><div class="lbl">Carnival</div><div class="big">'+money(cm.t)+'</div><div class="sub">'+ordinal(cm.rank)+' of '+carRows.length+'</div></div>'+
       '<div class="stat s-butter"><div class="lbl">Tipped</div><div class="big">'+picked+'/'+races.length+'</div><div class="sub">races</div></div></div>';
   }
   if(!races.length) return out+'<div class="empty">No fields yet. Check back after acceptances.</div>';
   out+=lockBanner(UI.dayId);
-  races.forEach(function(r){
-    var locked=isLocked(r), res=D.res[r.id]||{}, scr=(res.scratched||[]).map(String);
-    var saved=S.me ? (D.tip[S.me.id]||{})[r.id] : null;
-    var cur=UI.draft[r.id]!=null ? UI.draft[r.id] : (saved||'');
-    var status = hasResult(r.id) ? '<span class="pill result">'+((D.res[r.id].status==='interim')?'Interim':'Official')+'</span>' :
-                 started(r) ? '<span class="pill closed">Jumped</span>' : locked ? '<span class="pill closed">🔒 Locked</span>' : '<span class="pill open">Open</span>';
-    out+='<div class="card"><div class="row"><h3>'+rno(r)+esc(r.name)+'</h3><span class="sp"></span>'+status+'</div>';
-    out+='<div class="muted meta">'+fmtTime(r.start)+' your time · '+r.runners.length+' runners</div>';
-    if(S.me && !locked){
-      out+='<select class="pick'+(cur?' set':'')+'" data-race="'+esc(r.id)+'"><option value="">Pick your runner…</option>'+
-        r.runners.map(function(h){ var s=scr.indexOf(String(h.no))>=0;
-          return '<option value="'+esc(h.no)+'" '+(String(cur)===String(h.no)?'selected':'')+(s?' disabled':'')+'>'+esc(h.no)+'. '+esc(h.name)+(s?' (SCR)':'')+'</option>'; }).join('')+'</select>';
-      if(cur && scr.indexOf(String(cur))>=0) out+='<div class="warn">Your horse is scratched — pick again or it switches to the favourite.</div>';
-    } else if(S.me){
-      out+='<div class="yourtip"><span class="muted">Your tip</span> <b>'+(saved? cloth(saved)+esc(horseName(r,saved)) : '<span class="muted">none</span>')+'</b>';
-      var eh=effHorse(r.id,saved);
-      if(saved && eh!==String(saved)) out+=' <span class="muted">→ scratched, runs as fav #'+esc(eh)+' '+esc(horseName(r,eh))+'</span>';
-      var pt=points(S.me.id,r.id);
-      if(pt!=null) out+=' <span class="sp"></span><span class="'+(pt>0?'pts':'zero')+'">'+(pt>0?'+'+money(pt):'$0.00')+'</span>';
-      out+='</div>';
-    }
-    if(hasResult(r.id)) out+='<div class="res">'+resultLine(r)+'</div>';
-    out+='</div>';
-  });
+  var rid=tipRaceFor(UI.dayId); UI.tipRace[UI.dayId]=rid;
+  var r=D.race[rid], idx=races.indexOf(r);
+
+  // race buttons: tick + your horse number
+  out+='<div class="rbtns">'+races.map(function(x){
+    var p=curPick(x), done=hasResult(x.id);
+    return '<button class="rb'+(x.id===rid?' on':'')+(p?' has':'')+'" data-tipr="'+esc(x.id)+'"><b>R'+x.raceNo+'</b><span>'+(p?'#'+esc(p):(done?'✓':(isLocked(x)?'–':'tip')))+'</span></button>';
+  }).join('')+'</div>';
+
+  var res=D.res[r.id]||{}, scr=(res.scratched||[]).map(String), locked=isLocked(r), canPick=!!S.me && !locked;
+  var mine=curPick(r), eff=effHorse(r.id,mine);
+  var status = hasResult(r.id) ? '<span class="pill result">'+(res.status==='interim'?'Interim':'Official')+'</span>' :
+               started(r) ? '<span class="pill closed">Jumped</span>' : locked ? '<span class="pill closed">🔒 Locked</span>' : '<span class="pill open">Open</span>';
+  out+='<div class="card racehead"><div class="row"><h3>'+rno(r)+esc(r.name)+'</h3><span class="sp"></span>'+status+'</div>'+
+    '<div class="muted meta">'+fmtTime(r.start)+' your time · '+r.runners.length+' runners'+(res.favourite?' · Fav #'+esc(res.favourite):'')+'</div>';
+  if(hasResult(r.id)) out+='<div class="res">'+resultLine(r)+'</div>';
+  if(S.me && (locked || mine)){
+    var pt=points(S.me.id,r.id);
+    out+='<div class="yourtip"><span class="muted">Your tip</span> <b>'+(mine? cloth(mine)+esc(horseName(r,mine)) : '<span class="muted">none</span>')+'</b>'+
+      (mine && eff!==mine ? ' <span class="muted">→ scratched, runs as fav #'+esc(eff)+'</span>':'')+
+      (pt!=null ? '<span class="sp"></span><span class="'+(pt>0?'pts':'zero')+'">'+(pt>0?'+'+money(pt):'$0.00')+'</span>' : '')+'</div>';
+  }
+  if(canPick && mine && scr.indexOf(mine)>=0) out+='<div class="warn">Your horse is scratched. Pick again, or it switches to the favourite.</div>';
+  out+='</div>';
+
+  // who tipped what (after lock)
+  var visible=locked || S.isAdmin, tippers={}, nT=0;
+  if(visible) S.players.forEach(function(p){ var t=(D.tip[p.id]||{})[r.id]; if(t){ var e=effHorse(r.id,t); (tippers[e]=tippers[e]||[]).push(p.name); nT++; } });
+
+  out+=canPick?'<div class="muted note">Tap a horse to pick it. Tips save automatically.</div>':'';
+  out+='<div class="card runners pickl">'+r.runners.map(function(hh){
+    var no=String(hh.no), isScr=scr.indexOf(no)>=0, sel=(mine===no), pl=hasResult(r.id)?placingOf(r.id,no):null;
+    var who=tippers[no]||[], meta=[];
+    if(hh.j) meta.push('J: '+esc(hh.j)); if(hh.t) meta.push('T: '+esc(hh.t)); if(hh.w) meta.push(esc(hh.w)+'kg');
+    var cls='rr'+(sel?' sel':'')+(isScr?' is-scr':'')+(canPick&&!isScr?' tap':'')+(pl?' pl'+pl.pos:'');
+    return '<div class="'+cls+'"'+(canPick&&!isScr?' data-pickh="'+esc(no)+'" role="button" tabindex="0"':'')+'>'+
+      '<div class="rsilk">'+silksSVG(hh.s)+'</div>'+
+      '<div class="rnum">'+esc(no)+'</div>'+
+      '<div class="rmain"><div class="rname"><span class="'+(isScr?'scr':'')+'">'+esc(hh.name)+'</span>'+(hh.bar?'<span class="rbar">('+esc(hh.bar)+')</span>':'')+
+        (String(res.favourite)===no?' <span class="pill result">Fav</span>':'')+(isScr?' <span class="pill closed">Scr</span>':'')+'</div>'+
+        (meta.length?'<div class="rmeta">'+meta.join(' · ')+'</div>':'')+
+        formPills(hh.f)+
+        (pl?'<div class="rres"><span class="rpos p'+pl.pos+'">'+ordinal(pl.pos)+'</span><span class="muted">'+(pl.win?money(pl.win)+' / ':'')+money(pl.place)+'</span></div>':'')+
+        (visible&&who.length?'<div class="muted rwho">'+esc(who.join(', '))+'</div>':'')+
+      '</div>'+
+      '<div class="rright">'+(canPick? (isScr?'':'<span class="radio">'+(sel?'✓':'')+'</span>') :
+        (visible?(who.length?'<b>'+who.length+'</b><span>tips</span>':'<span class="zero">–</span>'):(sel?'<span class="radio">✓</span>':'')))+'</div>'+
+    '</div>';
+  }).join('')+'</div>';
+
+  var prev=races[idx-1], next=races[idx+1];
+  out+='<div class="rnav">'+(prev?'<button class="btn ghost" data-tipr="'+esc(prev.id)+'">← R'+prev.raceNo+'</button>':'<span></span>')+
+    (next?'<button class="btn '+(mine||!canPick?'gold':'ghost')+'" data-tipr="'+esc(next.id)+'">R'+next.raceNo+' →</button>':'<span></span>')+'</div>';
   return out;
 }
 function lockBanner(dayId){
@@ -534,12 +672,32 @@ function dirtyCount(){
   return Object.keys(UI.draft).filter(function(k){ return String(UI.draft[k]) !== String((D.tip[S.me.id]||{})[k]||''); }).length;
 }
 function renderSaveBar(){
-  var n=dirtyCount();
+  var old=document.getElementById('savebar'); if(old) old.remove();
+  if(!S.me || UI.tab!=='tips') return;
+  var races=D.byDay[UI.dayId]||[]; if(!races.length) return;
+  var n=dirtyCount(), picked=races.filter(function(r){return curPick(r);}).length;
+  var st = SAVE.failed ? '<b>Not saved.</b> Check your connection.' : (SAVE.busy||n) ? 'Saving…' : '✓ Tips saved';
   var b=document.createElement('div'); b.className='savebar'; b.id='savebar';
-  b.innerHTML='<span class="muted sp">'+(n? n+' unsaved tip'+(n>1?'s':'') : 'All tips locked in')+'</span>'+
-    '<button class="btn gold" data-act="saveTips" '+(n?'':'disabled')+'>Save tips</button>';
+  b.innerHTML='<span class="muted sp">'+picked+'/'+races.length+' tipped · '+st+'</span>'+
+    (SAVE.failed?'<button class="btn gold" data-act="saveTips">Retry</button>':'');
   document.body.appendChild(b);
 }
+var SAVE={busy:false,failed:false,timer:null};
+function scheduleSave(){ SAVE.failed=false; clearTimeout(SAVE.timer); SAVE.timer=setTimeout(doSave,800); renderSaveBar(); }
+function doSave(){
+  if(SAVE.busy){ SAVE.timer=setTimeout(doSave,400); return; }
+  var sent={}; Object.keys(UI.draft).forEach(function(k){ if(String(UI.draft[k])!==String((D.tip[S.me.id]||{})[k]||'')) sent[k]=UI.draft[k]; });
+  var keys=Object.keys(sent); if(!keys.length){ UI.draft={}; renderSaveBar(); return; }
+  SAVE.busy=true; renderSaveBar();
+  api('api_saveTips',TOKEN,keys.map(function(k){return {raceId:k,horseNo:sent[k]};})).then(function(st){
+    SAVE.busy=false; SAVE.failed=false;
+    keys.forEach(function(k){ if(UI.draft[k]===sent[k]) delete UI.draft[k]; });
+    load(st);
+    if(st.saveErrors && st.saveErrors.length){ keys.forEach(function(k){ delete UI.draft[k]; }); load(st); toast('Not saved: '+st.saveErrors.join('; ')); }
+    if(dirtyCount()) scheduleSave();
+  }).catch(function(e){ SAVE.busy=false; SAVE.failed=true; renderSaveBar(); fail(e); });
+}
+window.addEventListener('beforeunload',function(e){ if(S && S.me && (dirtyCount()||SAVE.busy)){ e.preventDefault(); e.returnValue=''; } });
 
 /* ============ Leaderboard ============ */
 function vBoard(){
@@ -772,6 +930,7 @@ function vAdmin(){
     '<div><label class="f">Tips lock (your time)</label><input id="dLock" type="datetime-local" style="width:100%" value="'+esc(toLocalInput(ed.lockAt))+'"></div></div>'+
     '<div class="muted" style="margin-top:4px">Leave the lock time blank to use 8:00am Perth time on race day.</div>'+
     '<label class="f">Paste fields (Melbourne times). Re-pasting a race replaces it; tips on unchanged horse numbers are kept.</label>'+
+    '<div class="muted" style="margin-bottom:6px">Optional form after the name, separated by <b>|</b>: B: barrier, J: jockey, T: trainer, W: weight, F: form, S: colours. For example: <code>5 Fast One | B:4 | J:A. Rider | T:B. Trainer | W:57 | F:1x231 | S:Royal Blue, White Hoops, Red Cap</code></div>'+
     '<textarea id="dPaste" placeholder="R1 12:40 Maiden Plate 1400m\n1 Horse One\n2 Horse Two\n3 Horse Three SCR\nR2 1:15 Next Race\n1 ..."></textarea>'+
     '<div class="row" style="margin-top:8px"><button class="btn" data-act="saveDay">Save day</button><span class="sp"></span>'+
     (UI.adminDay?'<button class="btn danger small" data-act="deleteDay">Delete day</button>':'')+'</div></div>';
@@ -840,8 +999,11 @@ function linkFor(p){ return pageUrl() + '?t=' + p.token; }
 
 /* ============ Events ============ */
 document.addEventListener('click',function(e){
-  var t=e.target.closest('button,th,tr'); if(!t) return;
+  var t=e.target.closest('button,th,tr,[data-pickh]'); if(!t) return;
   var d=t.dataset;
+  if(d.pickh){ var rr=D.race[UI.tipRace[UI.dayId]]; if(!rr||isLocked(rr)) return;
+    UI.draft[rr.id] = (curPick(rr)===d.pickh) ? '' : d.pickh; render(); scheduleSave(); return; }
+  if(d.tipr){ UI.tipRace[UI.dayId]=d.tipr; render(); var rb=document.querySelector('.rbtns'); if(rb) rb.scrollIntoView({block:'start',behavior:'smooth'}); return; }
   if(d.tab){ UI.tab=d.tab; render(); window.scrollTo(0,0); return; }
   if(d.day){ UI.dayId=d.day; render(); return; }
   if(d.lb){ UI.lbMode=d.lb; render(); return; }
@@ -861,6 +1023,9 @@ document.addEventListener('click',function(e){
   if(d.remove){ if(!confirm('Remove '+D.player[d.remove].name+' and all their tips?')) return; admin('removePlayer',{id:d.remove}); return; }
   if(d.act) actions[d.act] && actions[d.act](t);
 });
+document.addEventListener('keydown',function(e){
+  if((e.key==='Enter'||e.key===' ') && e.target.dataset && e.target.dataset.pickh){ e.preventDefault(); e.target.click(); }
+});
 document.addEventListener('change',function(e){
   var el=e.target;
   if(el.classList.contains('pick')){ UI.draft[el.dataset.race]=el.value; var b=document.getElementById('savebar'); if(b) b.remove(); renderSaveBar(); }
@@ -868,14 +1033,7 @@ document.addEventListener('change',function(e){
 });
 
 var actions={
-  saveTips:function(btn){
-    var picks=Object.keys(UI.draft).map(function(k){return {raceId:k,horseNo:UI.draft[k]};});
-    btn.disabled=true; btn.textContent='Saving…';
-    api('api_saveTips',TOKEN,picks).then(function(st){
-      UI.draft={}; load(st);
-      toast(st.saveErrors && st.saveErrors.length ? ('Saved, but: '+st.saveErrors.join('; ')) : 'Tips locked in ✓');
-    }).catch(function(e){ fail(e); render(); });
-  },
+  saveTips:function(){ SAVE.failed=false; doSave(); },
   saveDay:function(){
     var lk=val('dLock');
     var p={id:UI.adminDay||'',name:val('dName').trim(),date:val('dDate'),order:val('dOrder'),paste:val('dPaste'),lockAt:lk?new Date(lk).toISOString():''};
@@ -913,9 +1071,15 @@ function admin(action,payload,after){
 }
 
 /* ============ Boot ============ */
-function busy(){ var a=document.activeElement; return !!document.querySelector('.modal') || (a && /SELECT|INPUT|TEXTAREA/.test(a.tagName)); }
+function busy(){ var a=document.activeElement; return !!document.querySelector('.modal') || SAVE.busy || (S && dirtyCount()>0) || (a && /SELECT|INPUT|TEXTAREA/.test(a.tagName)); }
 function load(st){
   S=st; derive();
+  var old=!(st.version>=2);
+  var w=document.getElementById('oldwarn');
+  if(old && !w){ w=document.createElement('div'); w.id='oldwarn'; w.className='oldwarn';
+    w.innerHTML='<b>The Google script is out of date.</b> In Apps Script: paste in the latest Code.gs, then Deploy → Manage deployments → ✏️ → Version: <b>New version</b> → Deploy. Until then, tips stay hidden until each race starts.';
+    var m=document.querySelector('main'); m.parentNode.insertBefore(w,m); }
+  if(!old && w) w.remove();
   if(!UI.dayId || !D.day[UI.dayId]) UI.dayId=defaultDay();
   render();
 }
