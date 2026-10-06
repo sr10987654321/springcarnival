@@ -337,7 +337,8 @@ code{font-size:11.5px;background:#F2F6E6;padding:1px 4px;border-radius:5px}
 .mpick b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mpick.none{color:#B8305E;font-weight:800;font-size:14px}
 .mr:not(.need) .mpick.none{color:var(--muted)}
-.msilk .silk{width:26px;height:29px;display:block;margin-right:2px}
+.msilk .silk{width:26px;height:29px;display:block;margin-right:2px;object-fit:contain}
+.rsilk img.silk{object-fit:contain}
 .mright{flex:0 0 auto}
 .mgo{font-weight:900;color:var(--leaf);font-size:14px}
 .mr.need .mgo{color:#B8305E}
@@ -367,6 +368,10 @@ code{font-size:11.5px;background:#F2F6E6;padding:1px 4px;border-radius:5px}
 .ctab{margin-top:6px}
 .ctab summary{font-size:12px;font-weight:800;color:var(--leaf);cursor:pointer;padding:4px 0}
 .ctab .tbl-wrap{box-shadow:none;border:1px solid var(--line);margin:6px 0 4px}
+
+.autost{margin:10px 0 2px;font-weight:800;font-size:14px;padding:8px 12px;border-radius:12px}
+.autost.on{background:var(--pear-soft);color:var(--ink)}
+.autost.off{background:#FFE3E7;color:#8E1D2C}
 </style>
 </head>
 <body>
@@ -615,6 +620,7 @@ function silksSVG(desc){
     '<path d="'+shirt+'" fill="none" stroke="#15361F" stroke-width="2.5" stroke-linejoin="round"/>'+
     '<path d="M28 4Q40 -14 52 4Z" fill="'+cap+'" stroke="#15361F" stroke-width="2.5" stroke-linejoin="round"/><path d="M50 4L60 5" stroke="#15361F" stroke-width="3" stroke-linecap="round"/></svg>';
 }
+function silkFor(r){ return r.si ? '<img class="silk" src="'+esc(r.si)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' : silksSVG(r.s); }
 function formPills(f){
   if(!f) return '';
   return '<span class="form"><span class="flbl">Form</span>'+String(f).split('').map(function(ch){
@@ -659,7 +665,7 @@ function vMine(){
     return '<div class="mr'+(!p&&!locked?' need':'')+(pl?' pl'+pl.pos:'')+'" data-gorace="'+esc(r.id)+'" role="button" tabindex="0">'+
       rno(r)+
       '<div class="mmain"><div class="mrace">'+esc(r.name)+' <span class="muted">· '+fmtTime(r.start)+'</span></div>'+
-      (h ? '<div class="mpick">'+(h.s?'<span class="msilk">'+silksSVG(h.s)+'</span>':'')+cloth(h.no)+'<b>'+esc(h.name)+'</b>'+
+      (h ? '<div class="mpick">'+((h.s||h.si)?'<span class="msilk">'+silkFor(h)+'</span>':'')+cloth(h.no)+'<b>'+esc(h.name)+'</b>'+
              (eff!==p?' <span class="muted">→ fav #'+esc(eff)+'</span>':'')+
              (pl?' <span class="rpos p'+pl.pos+'">'+ordinal(pl.pos)+'</span>':'')+'</div>'
          : '<div class="mpick none">'+(locked?'No tip':'Not tipped yet')+'</div>')+
@@ -714,13 +720,14 @@ function vTips(){
   if(visible) S.players.forEach(function(p){ var t=(D.tip[p.id]||{})[r.id]; if(t){ var e=effHorse(r.id,t); (tippers[e]=tippers[e]||[]).push(p.name); nT++; } });
 
   out+=canPick?'<div class="muted note">Tap a horse to pick it. Tips save automatically.</div>':'';
+  var anySilk=r.runners.some(function(x){ return x.s||x.si; });
   out+='<div class="card runners pickl">'+r.runners.map(function(hh){
     var no=String(hh.no), isScr=scr.indexOf(no)>=0, sel=(mine===no), pl=hasResult(r.id)?placingOf(r.id,no):null;
     var who=tippers[no]||[], meta=[];
     if(hh.j) meta.push('J: '+esc(hh.j)); if(hh.t) meta.push('T: '+esc(hh.t)); if(hh.w) meta.push(esc(hh.w)+'kg');
     var cls='rr'+(sel?' sel':'')+(isScr?' is-scr':'')+(canPick&&!isScr?' tap':'')+(pl?' pl'+pl.pos:'');
     return '<div class="'+cls+'"'+(canPick&&!isScr?' data-pickh="'+esc(no)+'" role="button" tabindex="0"':'')+'>'+
-      '<div class="rsilk">'+silksSVG(hh.s)+'</div>'+
+      (anySilk?'<div class="rsilk">'+silkFor(hh)+'</div>':'')+
       '<div class="rnum">'+esc(no)+'</div>'+
       '<div class="rmain"><div class="rname"><span class="'+(isScr?'scr':'')+'">'+esc(hh.name)+'</span>'+(hh.bar?'<span class="rbar">('+esc(hh.bar)+')</span>':'')+
         (String(res.favourite)===no?' <span class="pill result">Fav</span>':'')+(isScr?' <span class="pill closed">Scr</span>':'')+'</div>'+
@@ -1156,6 +1163,9 @@ function vAdmin(){
   var out='';
   // --- Results
   out+='<h2>Results</h2>';
+  var fn=favNeeded();
+  if(fn.length) out+='<div class="oldwarn" style="margin:0 0 12px !important;width:auto"><b>Favourite needed.</b> '+fn.map(function(r){ return esc((D.day[r.dayId]||{}).name||'')+' R'+r.raceNo; }).join(', ')+
+    ': someone tipped a scratched horse and no favourite is set, so that tip scores $0 until you choose the favourite below and save.</div>';
   if(!S.days.length) out+='<div class="card muted">Add a race day first.</div>';
   else {
     out+=dayChips();
@@ -1181,7 +1191,8 @@ function vAdmin(){
     '<label class="f">Paste fields (Melbourne times). Re-pasting a race replaces it; tips on unchanged horse numbers are kept.</label>'+
     '<div class="muted" style="margin-bottom:6px">Optional form after the name, separated by <b>|</b>: B: barrier, J: jockey, T: trainer, W: weight, F: form, S: colours. For example: <code>5 Fast One | B:4 | J:A. Rider | T:B. Trainer | W:57 | F:1x231 | S:Royal Blue, White Hoops, Red Cap</code></div>'+
     '<textarea id="dPaste" placeholder="R1 12:40 Maiden Plate 1400m\n1 Horse One\n2 Horse Two\n3 Horse Three SCR\nR2 1:15 Next Race\n1 ..."></textarea>'+
-    '<div class="row" style="margin-top:8px"><button class="btn" data-act="saveDay">Save day</button><span class="sp"></span>'+
+    '<div class="row" style="margin-top:8px"><button class="btn" data-act="saveDay">Save day</button>'+
+    (UI.adminDay?'<button class="btn gold" data-act="tabImport">Import fields from TABtouch</button>':'')+'<span class="sp"></span>'+
     (UI.adminDay?'<button class="btn danger small" data-act="deleteDay">Delete day</button>':'')+'</div></div>';
   // --- Players
   out+='<h2>Players ('+S.players.length+')</h2><div class="card">'+
@@ -1204,8 +1215,19 @@ function vAdmin(){
     (hasDemo?'<button class="btn danger" data-act="clearDemo">Remove demo data</button>':'')+'</div></div>';
   // --- Settings
   out+='<h2>Settings</h2><div class="card"><label class="f">Competition title</label><input id="cTitle" style="width:100%" value="'+esc(S.title)+'">'+
-    '<label class="f">Results source URL (used by the automatic results check)</label><input id="cUrl" style="width:100%" value="'+esc(S.resultsUrl||'')+'">'+
-    '<div class="row" style="margin-top:8px"><button class="btn" data-act="saveCfg">Save settings</button><button class="btn ghost" data-act="fetchNow">Check results now</button></div></div>';
+    '<div class="row" style="margin-top:8px"><button class="btn" data-act="saveCfg">Save settings</button></div></div>';
+  // --- TAB results
+  out+='<h2>Results from TABtouch</h2><div class="card">'+
+    '<div class="muted">Results and scratchings are read from TABtouch for each race, starting 8 minutes after it jumps. You can still enter or fix any result by hand above.</div>'+
+    '<div class="autost '+(S.autoOn?'on':'off')+'">'+(S.autoOn?'● Automatic checking is ON (every 5 minutes)':'○ Automatic checking is OFF')+'</div>'+
+    '<div class="grid2"><div><label class="f">TABtouch address</label><input id="cUrl" style="width:100%" value="'+esc(S.resultsUrl||'')+'"></div>'+
+    '<div><label class="f">Meeting code</label><input id="cMeet" style="width:100%" value="'+esc(S.tabMeeting||'mr')+'"></div></div>'+
+    '<div class="muted" style="margin-top:4px">Meeting code is the two letters in the TABtouch address for the meeting, e.g. <code>/racing/2026-10-17/<b>mr</b>/1</code> for Melbourne.</div>'+
+    '<div class="row" style="margin-top:10px"><button class="btn" data-act="saveCfg">Save</button>'+
+    '<button class="btn ghost" data-act="fetchNow">Check results now</button>'+
+    '<button class="btn ghost" data-act="tabTest">Test TAB connection</button>'+
+    '<button class="btn ghost" data-act="tabSource">Download page source</button>'+
+    (S.autoOn?'':'<button class="btn gold" data-act="autoOn">Turn on automatic checking</button>')+'</div></div>';
   return out;
 }
 function resultForm(r){
@@ -1291,11 +1313,18 @@ var actions={
     if(!p.name||!p.date){ toast('Name and date needed'); return; }
     admin('saveDay',p,function(st){ if(!UI.adminDay){ var nd=st.days.find(function(d){return d.name===p.name&&d.date===p.date;}); if(nd) UI.adminDay=nd.id; } UI.dayId=UI.adminDay||UI.dayId; });
   },
+  tabImport:function(){ if(!UI.adminDay){ toast('Save the day first'); return; }
+    var n=(D.byDay[UI.adminDay]||[]).length;
+    if(n && !confirm('Replace the fields for this day with the ones on TABtouch? Tips on horse numbers that are still in the field are kept.')) return;
+    var id=UI.adminDay; admin('tabImport',{dayId:id},function(){ UI.dayId=id; UI.adminRace=null; },'Importing from TABtouch… this can take 20 seconds'); },
   deleteDay:function(){ if(!confirm('Delete this day, its races, tips and results?')) return; var id=UI.adminDay; UI.adminDay=''; admin('deleteDay',{id:id}); },
   addPlayers:function(){ var tx=val('pAdd'); if(!tx.trim()) return; admin('addPlayers',{text:tx}); },
   allLinks:function(){ showModal('Player links', S.players.map(function(p){return p.name+(p.email?' <'+p.email+'>':'')+'\n'+linkFor(p);}).join('\n\n')); },
-  saveCfg:function(){ admin('setConfig',{TITLE:val('cTitle'),RESULTS_URL:val('cUrl')}); },
-  fetchNow:function(){ admin('fetchNow',{}); },
+  saveCfg:function(){ admin('setConfig',{TITLE:val('cTitle'),RESULTS_URL:val('cUrl').trim(),TAB_MEETING:val('cMeet').trim()||'mr'}); },
+  fetchNow:function(){ admin('fetchNow',{},null,'Checking TABtouch…'); },
+  tabTest:function(){ if(!UI.adminRace){ toast('Pick a race in the Results section first'); return; } admin('tabTest',{raceId:UI.adminRace},null,'Testing…'); },
+  autoOn:function(){ admin('installTrigger',{},null,'Turning on…'); },
+  tabSource:function(){ if(!UI.adminRace){ toast('Pick a race in the Results section first'); return; } admin('tabSource',{raceId:UI.adminRace},null,'Fetching page…'); },
   loadDemo:function(){ admin('loadDemo',{},function(){ UI.dayId=null; UI.adminRace=null; UI.compare=[]; }); },
   clearDemo:function(){ if(!confirm('Remove all demo players, days, tips and results?')) return; admin('clearDemo',{},function(){ UI.dayId=null; UI.adminRace=null; UI.compare=[]; }); },
   addRow:function(){ UI.extraRows=UI.extraRows||{}; UI.extraRows[UI.adminRace]=(UI.extraRows[UI.adminRace]||0)+1; render(); },
@@ -1316,9 +1345,49 @@ var actions={
 function toLocalInput(iso){ if(!iso) return ''; var d=new Date(iso); if(isNaN(d)) return ''; var p=function(n){return ('0'+n).slice(-2);};
   return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }
 function val(id){ var el=document.getElementById(id); return el?el.value:''; }
-function admin(action,payload,after){
-  toast('Saving…');
-  api('api_admin',ADMIN,action,payload).then(function(st){ if(after) after(st); load(st); toast('Saved ✓'); }).catch(fail);
+function admin(action,payload,after,busyMsg){
+  toast(busyMsg||'Saving…');
+  api('api_admin',ADMIN,action,payload,TOKEN).then(function(st){ if(after) after(st); load(st);
+    if(st.source) saveSource(st.source); else if(st.diag) showDiag(st.diag); else toast(st.fetchMsg || 'Saved ✓'); }).catch(fail);
+}
+function saveSource(s){
+  try{ var blob=new Blob([s.html],{type:'text/html'}), a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=s.name;
+    document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500);
+    toast(s.status===200 ? 'Saved '+s.name : 'TABtouch returned '+s.status+'. File saved anyway.'); }
+  catch(e){ showModal('Page source ('+s.status+')', s.html); }
+}
+function favNeeded(){   // races with a result, no favourite, and at least one tip on a scratched horse
+  return S.races.filter(function(r){ var x=D.res[r.id]; if(!x || !hasResult(r.id) || x.favourite) return false;
+    var scr=(x.scratched||[]).map(String); if(!scr.length) return false;
+    return S.players.some(function(p){ var t=(D.tip[p.id]||{})[r.id]; return t && scr.indexOf(String(t))>=0; }); });
+}
+function showDiag(d){
+  var ok = d.status===200 && d.parsed && d.parsed.placings && d.parsed.placings.length;
+  var lines=[];
+  lines.push(ok ? 'RESULT READ OK' : (d.error ? 'COULD NOT CONNECT' : d.status!==200 ? 'TABTOUCH RETURNED AN ERROR' : d.hasResultBlock ? 'PAGE FOUND, BUT NO RESULT ON IT YET' : 'PAGE FOUND, BUT NOT IN THE EXPECTED LAYOUT'));
+  lines.push('');
+  lines.push('Race page: '+d.url);
+  lines.push('Status: '+(d.error||d.status)+'   Size: '+(d.length||0)+' characters');
+  lines.push('Result block found: '+(d.hasResultBlock?'yes':'no')+'   Placings found: '+(d.positionMarkers||0)+'   Runner numbers: '+(d.runnerNumbers||0)+(d.needsJavaScript?'   (page says it needs JavaScript)':''));
+  if(d.parsed){ lines.push(''); lines.push('What would be saved:');
+    d.parsed.placings.forEach(function(p){ lines.push('  '+ordinal(p.pos)+'  #'+p.no+'  win $'+p.win+'  place $'+p.place); });
+    lines.push('  Favourite: '+(d.parsed.favourite?'#'+d.parsed.favourite+' (won)':'not shown on the page (TABtouch only marks it when it wins)'));
+    lines.push('  Dividends official: '+(d.parsed.official?'yes':'not yet')); }
+  lines.push('');
+  lines.push('Runner list on the page: '+(d.starters||0)+' runners');
+  if(d.starters){
+    lines.push('  Favourite by lowest tote win dividend: '+(d.favByDividend?'#'+d.favByDividend:'none yet'));
+    lines.push('  Scratched according to the list: '+((d.scratchedByStarters||[]).join(', ')||'none flagged'));
+    if(d.field) lines.push('  Import would read: '+d.field.name+' | start '+(d.field.start||'not found')+' | first runner '+JSON.stringify(d.field.first));
+    lines.push('  Field names: '+(d.starterKeys||[]).join(', '));
+    lines.push('  First runner as sent: '+(d.starterSample||''));
+  }
+  lines.push(''); lines.push('Scratchings page: '+d.scratchUrl);
+  lines.push('Status: '+(d.scratchError||d.scratchStatus)+'   Size: '+(d.scratchLength||0));
+  lines.push('Scratchings read: '+(d.scratchParsed?JSON.stringify(d.scratchParsed):'meeting not found on the page'));
+  lines.push(''); lines.push('----- copy everything below and send it to Claude if something is wrong -----');
+  lines.push('RACE PAGE SAMPLE:'); lines.push(d.sample||''); lines.push(''); lines.push('SCRATCHINGS SAMPLE:'); lines.push(d.scratchSample||'');
+  showModal('TAB connection test', lines.join('\n'));
 }
 
 /* ============ Boot ============ */
