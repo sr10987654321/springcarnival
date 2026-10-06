@@ -277,6 +277,14 @@ main .oldwarn{margin:0 0 12px}
 .rmid{grid-column:3;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:6px;min-width:0}
 .rmid:empty{display:none}
 .rres{display:inline-flex;align-items:center;gap:9px;font-size:16px;font-weight:700;color:var(--ink)}
+.odds{display:inline-flex;align-items:baseline;gap:14px;font-size:17px;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.odds i{font-style:normal;font-size:13.5px;font-weight:600;letter-spacing:0;color:var(--muted);margin-right:5px}
+.odds .opl{font-weight:600;color:var(--ink2)}
+.odds .zero{font-size:14.5px}
+.onote{margin:0 2px 10px;gap:6px 14px}
+.onote .muted{flex:1 1 260px}
+.seg.sm{margin:0;padding:3px}
+.seg.sm button{padding:4px 13px;font-size:14px}
 .form{display:inline-flex;align-items:center;gap:2px}
 .flbl{font-size:13.5px;color:var(--muted);margin-right:5px}
 .form i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;border-radius:6px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
@@ -294,9 +302,12 @@ main .oldwarn{margin:0 0 12px}
 .rnav{display:flex;justify-content:space-between;gap:10px;margin:14px 0 30px}
 .rnav .btn{padding:11px 20px}
 @media (min-width:860px){
-  .rr{grid-template-columns:auto auto minmax(0,1fr) 300px 52px}
-  .pickl.ns .rr{grid-template-columns:0 auto minmax(0,1fr) 300px 52px}
-  .rmid{grid-column:4;grid-row:1;margin-top:0}
+  .rr{grid-template-columns:auto auto minmax(0,1fr) 400px 52px}
+  .pickl.ns .rr{grid-template-columns:0 auto minmax(0,1fr) 400px 52px}
+  .rmid{grid-column:4;grid-row:1;margin-top:0;flex-wrap:nowrap}
+  .rmid .odds{order:2;margin-left:auto;gap:0}
+  .rmid .odds>span{min-width:98px;text-align:right}
+  .rmid .odds>span.zero{min-width:196px}
   .rright{grid-column:5;grid-row:1}
 }
 
@@ -830,6 +841,8 @@ function vTips(){
   if(visible) S.players.forEach(function(p){ var t=(D.tip[p.id]||{})[r.id]; if(t){ var e=effHorse(r.id,t); (tippers[e]=tippers[e]||[]).push(p.name); nT++; } });
 
   out+=canPick?'<div class="muted note">Tap a horse to pick it. Tips save automatically.</div>':'';
+  var od=hasResult(r.id)?null:raceOdds(r);
+  if(od) out+=oddsNote(od);
   var anySilk=r.runners.some(function(x){ return x.s||x.si; });
   out+='<div class="card pickl'+(anySilk?'':' ns')+'">'+r.runners.map(function(hh){
     var no=String(hh.no), isScr=scr.indexOf(no)>=0, sel=(mine===no), pl=hasResult(r.id)?placingOf(r.id,no):null;
@@ -845,6 +858,7 @@ function vTips(){
         (visible&&who.length?'<div class="muted rwho">'+esc(who.join(', '))+'</div>':'')+
       '</div>'+
       '<div class="rmid">'+
+        (od&&!isScr?oddsFor(od,no):'')+
         (pl?'<span class="rres"><span class="medal p'+pl.pos+'">'+ordinal(pl.pos)+'</span><span class="num">'+(pl.win?money(pl.win)+' / ':'')+money(pl.place)+'</span></span>':'')+
         formPills(hh.f)+'</div>'+
       '<div class="rright">'+(canPick? (isScr?'':'<span class="radio">'+(sel?ico('check'):'')+'</span>') :
@@ -856,6 +870,29 @@ function vTips(){
   out+='<div class="rnav">'+(prev?'<button class="btn ghost" data-tipr="'+esc(prev.id)+'">'+ico('prev')+'Race '+prev.raceNo+'</button>':'<span></span>')+
     (next?'<button class="btn '+(mine||!canPick?'gold':'ghost')+'" data-tipr="'+esc(next.id)+'">Race '+next.raceNo+ico('next')+'</button>':'<span></span>')+'</div>';
   return out;
+}
+/* Odds for a race that has not been resulted. TABtouch gives two kinds: fixed odds (steady, there from early on)
+   and tote odds (what the game pays, but only meaningful close to the jump). Fixed is shown until the last
+   half hour, then tote; the Fixed / Tote buttons switch by hand. */
+function raceOdds(r){
+  var o=r.odds; if(!o||!o.r) return null;
+  var nos=Object.keys(o.r), has=function(i){ return nos.some(function(n){ return o.r[n][i]>0; }); };
+  var tote=has(0), fixed=has(2); if(!tote&&!fixed) return null;
+  var near=Date.parse(r.start)-Date.now()<=30*60000;
+  var want=UI.oddsSrc, src=(want==='tote'&&tote)||(want==='fixed'&&fixed) ? want : ((tote&&(near||!fixed))?'tote':'fixed');
+  var i=src==='tote'?0:2;
+  return {src:src, both:tote&&fixed, at:o.at, of:function(no){ var v=o.r[String(no)]; return v&&v[i]>0 ? {w:v[i],p:v[i+1]} : null; }};
+}
+function oddsFor(od,no){
+  var o=od.of(no);
+  return '<span class="odds">'+(o ? '<span><i>Win</i>'+money(o.w)+'</span>'+(o.p?'<span class="opl"><i>Place</i>'+money(o.p)+'</span>':'') : '<span class="zero">No price yet</span>')+'</span>';
+}
+function oddsNote(od){
+  var t=new Date(od.at), when=isNaN(t)?'':(' at '+(t.toDateString()===new Date().toDateString()?fmtTime(od.at):fmtWhen(od.at)));
+  var txt= od.src==='tote' ? 'TAB tote odds'+when+'. They move until the jump, and the game pays the final tote dividend.'
+                           : 'TAB fixed odds'+when+'. A guide only: the game pays the final tote dividend.';
+  return '<div class="row onote"><span class="muted">'+txt+'</span>'+
+    (od.both?'<span class="sp"></span><div class="seg sm"><button data-odds="fixed" class="'+(od.src==='fixed'?'on':'')+'">Fixed</button><button data-odds="tote" class="'+(od.src==='tote'?'on':'')+'">Tote</button></div>':'')+'</div>';
 }
 function lockBanner(dayId,onGrid){
   var l=dayLock(dayId); if(!l) return '';
@@ -1282,7 +1319,7 @@ function vAdmin(){
     '<div class="row" style="margin-top:8px"><button class="btn" data-act="saveCfg">Save settings</button></div></div>';
   // --- TAB results
   out+='<h2>Results from TABtouch</h2><div class="card">'+
-    '<div class="muted">Results and scratchings are read from TABtouch for each race, starting 8 minutes after it jumps. You can still enter or fix any result by hand above.</div>'+
+    '<div class="muted">Results and scratchings are read from TABtouch for each race, starting 8 minutes after it jumps. You can still enter or fix any result by hand above. Odds for races still to run are kept up to date too: every 5 minutes in the last hour, every 20 minutes earlier on race day, and every 3 hours in the week before.</div>'+
     '<div class="autost '+(S.autoOn?'on':'off')+'"><i></i>'+(S.autoOn?'Automatic checking is on (every 5 minutes)':'Automatic checking is off')+'</div>'+
     '<div class="grid2"><div><label class="f">TABtouch address</label><input id="cUrl" style="width:100%" value="'+esc(S.resultsUrl||'')+'"></div>'+
     '<div><label class="f">Default meeting code</label><input id="cMeet" style="width:100%" value="'+esc(S.tabMeeting||'mr')+'"></div></div>'+
@@ -1343,6 +1380,7 @@ document.addEventListener('click',function(e){
   if(d.tab){ UI.tab=d.tab; render(); window.scrollTo(0,0); return; }
   if(d.day){ UI.dayId=d.day; render(); return; }
   if(d.lb){ UI.lbMode=d.lb; render(); return; }
+  if(d.odds){ UI.oddsSrc=d.odds; render(); return; }
   if(d.sm){ UI.statMode=d.sm; render(); return; }
   if(d.sort){ UI.statSort=d.sort; render(); return; }
   if(d.raceSel){ UI.raceId=d.raceSel; render(); return; }
